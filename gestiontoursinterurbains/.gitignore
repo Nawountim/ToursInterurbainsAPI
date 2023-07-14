@@ -1,0 +1,29 @@
+# Fichiers et dossiers générés automatiquement
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Fichiers spécifiques à Django
+db.sqlite3
+media/
+
+# Dossiers spécifiques à Python
+venv/
+env/
+
+# Fichiers de configuration sensibles
+settings.py
+secret_key.txt
+
+# Fichiers générés par des outils ou éditeurs spécifiques
+.vscode/
+.idea/
+
+# Fichiers de logs
+*.log
+
+# Fichiers de sauvegarde
+*.bak
+*.swp
+*~
