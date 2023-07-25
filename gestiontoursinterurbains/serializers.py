@@ -9,7 +9,7 @@ class utilisateurSerializer(serializers.ModelSerializer):
 class voyageurSerializer(serializers.ModelSerializer):
     class Meta:
         model = Voyageur
-        fields = ['user_id']
+        fields = ['nom_complet','contact','user_id']
         
 class proprietaireSerializer(serializers.ModelSerializer):
     class Meta:
@@ -40,11 +40,11 @@ class tourSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tour
         fields = ['libelle','chauffeur_id','vehicule_id', 'date','heure','trajet_id', 'capacite']
-        
+            
 class reservationSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Reservation
-        fields = ['nb_place','tour_id','latitude_pickup', 'longitude_pickup']
+            model = Reservation         
+            fields = ['nb_place','tour_id','latitude_pickup', 'longitude_pickup']
         
                                
 class momoTransactionSerializer(serializers.ModelSerializer):

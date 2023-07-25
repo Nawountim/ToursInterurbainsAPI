@@ -21,6 +21,7 @@ import bcrypt
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
+from django.db.models import F
 
 
 # Create your views here.
@@ -112,12 +113,12 @@ def get_one_utilisateur(request, id):
 def update_utilisateur(request, id):
     utilisateur = get_object_or_404(Utilisateur, id=id)
     if request.method == 'POST':
-        serializer = utilisateurSerializer(utilisateur, data=request.data)
+        data = json.loads(request.body)
+        serializer = utilisateurSerializer(utilisateur, data=data, partial=True)
         if serializer.is_valid():
-            serializer.update(utilisateur, request.data)
+            serializer.save()  # Utilisez serializer.save() pour enregistrer les modifications
             return JsonResponse({"info": "utilisateur modifié"})
-        return JsonResponse({"error": serializer.errors})
-            
+        return JsonResponse({"error": serializer.errors}, status=400)
 
 
 #Suppression d'un utilisateur
@@ -143,9 +144,9 @@ def create_proprietaire(request):
             utilisateur_obj.is_fournisseur = True  # Mise à jour du champ is_voyageur à True
             utilisateur_obj.save()  # Sauvegarde de l'utilisateur modifié
             
-            return JsonResponse({"Info": "Proprietaire créé"})
+            return JsonResponse({"Info": "Proprietaire créé", 'status':200})
         else:
-            return JsonResponse({"Info": "Proprietaire non créé"})
+            return JsonResponse({"Info": "Proprietaire non créé", 'status':400})
     return redirect("/get_proprietaire")
 
 #Liste des Proprietaires
@@ -176,23 +177,36 @@ def delete_proprietaire(request, id):
 
                             ###  Fonction de la classe Voyageur  ###
                             
+@csrf_exempt                            
 def create_voyageur(request):
     if request.method == "POST":
         data = json.loads(request.body)
-        update_id = data['user_id']
-        voyageur_serializer = voyageurSerializer(data=data)
+        update_id = data.get('user_id')
+        
+        try:
+            utilisateur_obj = Utilisateur.objects.get(id=update_id)
+        except ObjectDoesNotExist:
+            return JsonResponse({"Info": "Utilisateur avec cet ID n'existe pas.", 'status':400})
+        
+        # Create a data dictionary for voyageurSerializer with user_id and nom_complet
+        voyageur_data = {
+            'user_id': update_id,
+            'nom_complet': f"{utilisateur_obj.nom} {utilisateur_obj.prenom}",
+            'contact' : utilisateur_obj.contact
+        }
+        
+        voyageur_serializer = voyageurSerializer(data=voyageur_data)
         
         if voyageur_serializer.is_valid():
             voyageur_serializer.save()  # Sauvegarde du voyageur créé
-            utilisateur = update_id  # Récupération de l'ID de l'utilisateur associé au voyageur
-            utilisateur_obj = Utilisateur.objects.get(id=utilisateur)  # Récupération de l'objet utilisateur complet
             
             utilisateur_obj.is_voyageur = True  # Mise à jour du champ is_voyageur à True
             utilisateur_obj.save()  # Sauvegarde de l'utilisateur modifié
             
-            return JsonResponse({"Info": "Voyageur créé"})
+            return JsonResponse({"Info": "Voyageur créé", 'status':200})
         else:
-            return JsonResponse({"Info": "Voyageur non créé"})
+            return JsonResponse({"Info": "Voyageur non créé", "errors": voyageur_serializer.errors, 'status':400})
+    
     return redirect("/get_voyageur")
 
 
@@ -224,10 +238,10 @@ def create_chauffeur(request):
             utilisateur_obj.is_chauffeur = True  # Mise à jour du champ is_voyageur à True
             utilisateur_obj.save()  # Sauvegarde de l'utilisateur modifié
             
-            return JsonResponse({"Info": "chauffeur créé"})
+            return JsonResponse({"Info": "chauffeur créé", 'status': 200})
         else:
          #return JsonResponse({"error": serializer.errors})
-         return JsonResponse({"Info":"chauffeur non créé"})
+         return JsonResponse({"Info":"chauffeur non créé", 'status': 400})
     return redirect("/get_chauffeur")
 
         
@@ -350,9 +364,9 @@ def update_chauffeur_availability(request, id):
 
         c.save()
 
-        return JsonResponse({"info": "Statut de disponibilité modifié"})
+        return JsonResponse({"info": "Statut de disponibilité modifié", "code":200})
 
-    return JsonResponse({"error": "Statut de disponibilité non autorisé"})
+    return JsonResponse({"error": "Statut de disponibilité non autorisé", "code":400})
 
 
 #Suppression d'un chauffeur
@@ -458,8 +472,56 @@ def get_vehicule(request):
                 "is_accepted": vehicule.is_accepted,
                 "nb_place": vehicule.nb_place,
                 "proprietaire_id": vehicule.proprietaire_id.id,
+                "proprietaire": vehicule.proprietaire_id.user_id.nom
             })
     
+    return JsonResponse(data)
+
+
+
+#Vehicule  acceptés
+def get_vehicules_acceptes(request):
+    data = {"vehicules_acceptes": []}
+    vehicules = Vehicule.objects.filter(is_accepted=True)
+
+    for vehicule in vehicules:
+        vehicule_data = {
+            "id": vehicule.id,
+            "marque": vehicule.marque,
+            "visite_technique": vehicule.visite_technique,
+            "plaque": vehicule.plaque,
+            "statut": vehicule.statut,
+            "is_accepted": vehicule.is_accepted,
+            "nb_place": vehicule.nb_place,
+            "proprietaire_id": vehicule.proprietaire_id.id,
+            "proprietaire": vehicule.proprietaire_id.user_id.nom
+        }
+
+        data["vehicules_acceptes"].append(vehicule_data)
+
+    return JsonResponse(data)
+
+
+#Vehicule non acceptés
+def get_vehicules_non_acceptes(request):
+    data = {"vehicules_non_acceptes": []}
+    vehicules = Vehicule.objects.filter(is_accepted=False)
+
+    for vehicule in vehicules:
+        vehicule_data = {
+            "id": vehicule.id,
+            "marque": vehicule.marque,
+            "visite_technique": vehicule.visite_technique,
+            "plaque": vehicule.plaque,
+            "statut": vehicule.statut,
+            "is_accepted": vehicule.is_accepted,
+            "nb_place": vehicule.nb_place,
+            "proprietaire_id": vehicule.proprietaire_id.id,
+            "proprietaire": vehicule.proprietaire_id.user_id.nom
+        }
+
+        data["vehicules_non_acceptes"].append(vehicule_data)
+
     return JsonResponse(data)
 
 
@@ -470,12 +532,15 @@ def get_disponible_vehicule(request):
 
     for vehicule in vehicules:
         data["vehicules"].append({
-            "id": vehicule.id,
-            "marque": vehicule.marque,
-            "visite_technique": vehicule.visite_technique,
-            "plaque": vehicule.plaque,
-            "statut": vehicule.statut,
-            "latitude": vehicule.proprietaire_id,
+          "id": vehicule.id,
+                "marque": vehicule.marque,
+                "visite_technique": vehicule.visite_technique,
+                "plaque": vehicule.plaque,
+                "statut": vehicule.statut,
+                "is_accepted": vehicule.is_accepted,
+                "nb_place": vehicule.nb_place,
+                "proprietaire_id": vehicule.proprietaire_id.id,
+                "proprietaire": vehicule.proprietaire_id.user_id.nom
         })
 
     return JsonResponse(data)
@@ -492,14 +557,15 @@ def get_one_vehicule(request, id):
     
     for vehicule in vehicules:
         data["vehicule"].append({
-            "id": vehicule.id,
-            "marque": vehicule.marque,
-            "visite_technique": vehicule.visite_technique,
-            "plaque": vehicule.plaque,
-            "statut": vehicule.statut,
-            "is_accepted": vehicule.is_accepted,
-            "nb_place": vehicule.nb_place,
-            "proprietaire_id": vehicule.proprietaire_id.id,
+           "id": vehicule.id,
+                "marque": vehicule.marque,
+                "visite_technique": vehicule.visite_technique,
+                "plaque": vehicule.plaque,
+                "statut": vehicule.statut,
+                "is_accepted": vehicule.is_accepted,
+                "nb_place": vehicule.nb_place,
+                "proprietaire_id": vehicule.proprietaire_id.id,
+                "proprietaire": vehicule.proprietaire_id.user_id.nom
         })
     
     return JsonResponse(data)
@@ -522,6 +588,7 @@ def get_vehicules_by_proprietaire(request, proprietaire_id):
                 "is_accepted": vehicule.is_accepted,
                 "nb_place": vehicule.nb_place,
                 "proprietaire_id": vehicule.proprietaire_id.id,
+                "proprietaire": vehicule.proprietaire_id.user_id.nom
             })
         return JsonResponse(data)
     except Vehicule.DoesNotExist:
@@ -608,7 +675,26 @@ def delete_vehicule(request, id):
 def create_tour(request):
     if request.method == "POST":
         data = json.loads(request.body)
+        chauffeur_id = data['chauffeur_id']
+        vehicule_id = data['vehicule_id']
+        trajet_id = data['trajet_id']
         serializer = tourSerializer(data=data)
+        try:
+                chauffeur = Chauffeur.objects.get(id=chauffeur_id)
+        except Chauffeur.DoesNotExist:
+                return JsonResponse({"error": "Le chauffeur spécifié n'existe pas.", "code": 404})
+
+        try:
+                vehicule = Vehicule.objects.get(id=vehicule_id)
+        except Vehicule.DoesNotExist:
+                return JsonResponse({"error": "Le véhicule spécifié n'existe pas.", "code": 404})
+
+        try:
+                trajet = Trajet.objects.get(id=trajet_id)
+        except Trajet.DoesNotExist:
+                return JsonResponse({"error": "Le trajet spécifié n'existe pas.", "code": 404})
+
+
         if serializer.is_valid():
             tour = serializer.save()
             # Générer l'identifiant unique du tour 
@@ -631,7 +717,7 @@ def create_tour(request):
             return JsonResponse({"Info": "Tour créé"})
         else:
          #return JsonResponse({"error": serializer.errors})
-         return JsonResponse({"Info":"Tour non créé"})
+            return JsonResponse({"Info":"Serializer invalide"})
     return redirect("/get_tour")   
 
  
@@ -640,7 +726,7 @@ def create_tour(request):
 #Liste des Tours
 def get_tour(request):
     data = { "tours": [] }
-    tours = Tour.objects.all().order_by('date')
+    tours = Tour.objects.all().order_by('-date')
 
     for tour in tours:
         data["tours"].append({
@@ -651,6 +737,7 @@ def get_tour(request):
             "chauffeur_id": tour.chauffeur_id.id,
             "chauffeur_nom": tour.chauffeur_id.user_id.nom,
             "vehicule_id": tour.vehicule_id.id,
+            "vehicule": tour.vehicule_id.marque,
             "nb_reservation": tour.nb_reservation,
             "date": tour.date,
             "heure": tour.heure,
@@ -659,7 +746,36 @@ def get_tour(request):
             "capacite": tour.capacite,
                                   })
         """ Envoyer sous forme de Json: API """
-    return JsonResponse(data)            
+    return JsonResponse(data) 
+   
+
+#Liste des Tours disponible(nb_place > 0)
+def get_tour_disponible(request):
+    data = { "tours": [] }
+
+    # Sélectionner les tours où nb_reservation est inférieur à capacité
+    tours = Tour.objects.filter(nb_reservation__lt=F('capacite')).order_by('-date')
+
+    for tour in tours:
+        data["tours"].append({
+            "id": tour.id,
+            "libelle": tour.libelle,
+            "id_tour": tour.id_tour,
+            "statut": tour.statut,
+            "chauffeur_id": tour.chauffeur_id.id,
+            "chauffeur_nom": tour.chauffeur_id.user_id.nom,
+            "vehicule_id": tour.vehicule_id.id,
+            "vehicule": tour.vehicule_id.marque,
+            "nb_reservation": tour.nb_reservation,
+            "date": tour.date,
+            "heure": tour.heure,
+            "trajet_id": tour.trajet_id.id,
+            "trajet": tour.trajet_id.libelle,
+            "capacite": tour.capacite,
+        })
+
+    # Envoyer sous forme de JSON : API
+    return JsonResponse(data)   
 
 #Avoir un tour
 def get_one_tour(request, id):
@@ -673,6 +789,7 @@ def get_one_tour(request, id):
             "chauffeur_id": tour.chauffeur_id.id,
             "chauffeur_nom": tour.chauffeur_id.user_id.nom,
             "vehicule_id": tour.vehicule_id.id,
+            "vehicule": tour.vehicule_id.marque,
             "nb_reservation": tour.nb_reservation,
             "date": tour.date,
             "heure": tour.heure,
@@ -696,6 +813,7 @@ def get_tour_by_idtour(request, id_tour):
             "chauffeur_id": tour.chauffeur_id.id,
             "chauffeur_nom": tour.chauffeur_id.user_id.nom,
             "vehicule_id": tour.vehicule_id.id,
+            "vehicule": tour.vehicule_id.marque,
             "nb_reservation": tour.nb_reservation,
             "date": tour.date,
             "heure": tour.heure,
@@ -720,7 +838,8 @@ def get_tour_by_chauffeur(request, chauffeur_id):
                 "libelle": tour.libelle,
                 "statut": tour.statut,
                 "chauffeur_id": tour.chauffeur_id.id,
-                "chauffeur_nom": tour.chauffeur_id.user_id.nom,
+                "chauffeur_nom": tour.chauffeur_id.user_id.nom, 
+                "vehicule": tour.vehicule_id.marque,
                 "vehicule_id": tour.vehicule_id.id,
                 "nb_reservation": tour.nb_reservation,
                 "date": tour.date,
@@ -748,6 +867,7 @@ def get_tour_by_vehicule(request, vehicule_id):
                 "chauffeur_id": tour.chauffeur_id.id,
                 "chauffeur_nom": tour.chauffeur_id.user_id.nom,
                 "vehicule_id": tour.vehicule_id.id,
+                "vehicule": tour.vehicule_id.marque,
                 "nb_reservation": tour.nb_reservation,
                 "date": tour.date,
                 "heure": tour.heure,
@@ -855,6 +975,8 @@ def get_wallet_transaction(request):
             "service": wallet_transaction.service,
             "user_id": wallet_transaction.user_id.id,
             "reservation_id": wallet_transaction.reservation_id.id,
+            "reservation_idres": wallet_transaction.reservation_id.id_reservation,
+            "nom_reservant": wallet_transaction.reservation_id.voyageur_id.nom_complet,
             "nom_payant": f"{nom_payant} {prenom_payant}"
         })
     
@@ -878,6 +1000,7 @@ def get_wallet_transactions_by_user(request, user_id):
             "service": transaction.service,
             "user_id": transaction.user_id.id,
             "date": transaction.date,
+            "nom_reservant": transaction.reservation_id.voyageur_id.nom_complet,
             "nom du payant": transaction.user_id.nom 
         })
     
@@ -895,7 +1018,9 @@ def get_wallet_transaction_by_id(request, transaction_id):
             "service": transaction.service,
             "user_id": transaction.user_id.id,
             "reservation_id": transaction.reservation_id.id,
+            "reservation_idres": transaction.reservation_id.id_reservation,
             "date": transaction.date,
+            "nom_reservant": transaction.reservation_id.voyageur_id.nom_complet,
             "nom du payant": transaction.user_id.nom
         }
         return JsonResponse(data)
@@ -1217,7 +1342,7 @@ def create_reservation(request):
 #Liste des Reservations
 def get_reservation(request):
     data = { "reservations": [] }
-    reservations = Reservation.objects.all()
+    reservations = Reservation.objects.all().order_by('-id')
     for reservation in reservations:
         transaction_type = reservation.transaction_type.model if reservation.transaction_type else None
         data["reservations"].append({
@@ -1225,7 +1350,7 @@ def get_reservation(request):
             "id_reservation": reservation.id_reservation,
             "voyageur_id": reservation.voyageur_id.id,
             "voyageur_nom": reservation.voyageur_id.nom_complet,
-            "nb_place": reservation.nb_place,
+            "nb_place": reservation.nb_place,           
             "date": reservation.date,
             "tour_id": reservation.tour_id.id,
             "tour_libelle": reservation.tour_id.libelle,
@@ -1251,6 +1376,7 @@ def get_reservation_by_idres(request, id_reservation):
             "voyageur_id": reservation.voyageur_id.id,
             "voyageur_nom": reservation.voyageur_id.nom_complet,
             "nb_place": reservation.nb_place,
+            "date": reservation.date,
             "tour_id": reservation.tour_id.id,
             "latitude_pickup": reservation.latitude_pickup,
             "longitude_pickup": reservation.longitude_pickup,
@@ -1263,23 +1389,56 @@ def get_reservation_by_idres(request, id_reservation):
     except Reservation.DoesNotExist:
         return JsonResponse({"error": "La réservation spécifiée n'existe pas."})
 
+# Obtenir les réservations pour un tour donné
+def get_reservations_by_tour(request, tour_id):
+    try:
+        reservations = Reservation.objects.filter(tour_id=tour_id).order_by('-id')
+        data = []
+        for reservation in reservations:
+            transaction_type = reservation.transaction_type.model if reservation.transaction_type else None
 
+            reservation_data = {
+                "id": reservation.id,
+                "id_reservation": reservation.id_reservation,
+                "voyageur_id": reservation.voyageur_id.id,
+                "voyageur_nom": reservation.voyageur_id.nom_complet,
+                "nb_place": reservation.nb_place,
+                "tour_id": reservation.tour_id.id,
+                 "date": reservation.date,
+                "latitude_pickup": reservation.latitude_pickup,
+                "longitude_pickup": reservation.longitude_pickup,
+                "statut": reservation.statut_paiement,
+                "canal_paiement": reservation.canal_paiement,
+                "transaction_type": transaction_type,
+                "transaction_id": reservation.transaction_id,
+            }
+            data.append(reservation_data)
+
+        return JsonResponse(data, safe=False)
+    except Tour.DoesNotExist:
+        return JsonResponse({"error": "Le tour spécifié n'existe pas."})
+    
+    
 # Obtenir les réservations pour un Voyageur donné
 def get_reservations_by_voyageur(request, voyageur_id):
     data = {"reservations": []}
-    reservations = Reservation.objects.filter(voyageur_id=voyageur_id)
+    reservations = Reservation.objects.filter(voyageur_id=voyageur_id).order_by('-id')
     for reservation in reservations:
         transaction_type = reservation.transaction_type.model if reservation.transaction_type else None
         
         data["reservations"].append({
            "id": reservation.id,
             "id_reservation": reservation.id_reservation,
-            "voyageur_id": reservation.voyageur_id,
+            "voyageur_id": reservation.voyageur_id.id,
             "voyageur_nom": reservation.voyageur_id.nom_complet,
             "nb_place": reservation.nb_place,
-            "tour_id": reservation.tour_id,
+            "tour_id": reservation.tour_id.id,
+             "date": reservation.date,
+            "libelle_tour": reservation.tour_id.libelle,
+            "trajet": reservation.tour_id.trajet_id.libelle,
             "latitude_pickup": reservation.latitude_pickup,
             "longitude_pickup": reservation.longitude_pickup,
+             "Heure_depart": reservation.tour_id.heure,
             "statut": reservation.statut_paiement,
             "canal_paiement": reservation.canal_paiement,
             "transaction_type": transaction_type,
@@ -1290,7 +1449,7 @@ def get_reservations_by_voyageur(request, voyageur_id):
 # Obtenir les réservations pour un Utilisateur donné
 def get_reservations_by_utilisateur(request, utilisateur_id):
     data = {"reservations": []}
-    reservations = Reservation.objects.filter(utilisateur_id=utilisateur_id)
+    reservations = Reservation.objects.filter(utilisateur_id=utilisateur_id).order_by('-id')
     for reservation in reservations:
         transaction_type = reservation.transaction_type.model if reservation.transaction_type else None
         data["reservations"].append({
@@ -1300,6 +1459,8 @@ def get_reservations_by_utilisateur(request, utilisateur_id):
             "voyageur_nom": reservation.voyageur_id.nom_complet,
             "nb_place": reservation.nb_place,
             "tour_id": reservation.tour_id,
+             "Heure": reservation.tour_id.heure,
+             "date": reservation.date,
             "latitude_pickup": reservation.latitude_pickup,
             "longitude_pickup": reservation.longitude_pickup,
             "statut": reservation.statut_paiement,
@@ -1376,9 +1537,9 @@ def login(request):
                 role_id = None
                 if user.is_voyageur:
                     role_id = Voyageur.objects.get(user_id=user.id).id
-                elif user.is_fournisseur:
+                if user.is_fournisseur:
                     role_id = Proprietaire.objects.get(user_id=user.id).id
-                elif user.is_chauffeur:
+                if user.is_chauffeur:
                     role_id = Chauffeur.objects.get(user_id=user.id).id
 
                 return JsonResponse({
@@ -1407,16 +1568,16 @@ def login(request):
                 return JsonResponse({
                     'status': 400,
                     'success': False,
-                    'message': 'Options de connexion invalides'
+                    'message': 'Mot de passe incorrect'
                 })
         except Utilisateur.DoesNotExist:
             return JsonResponse({
                 'status': 400,
                 'success': False,
-                'message': 'Options de connexion invalides'
+                'message': 'L\'email fourni n\'existe pas'
             })
  
- 
+from django.core.exceptions import ObjectDoesNotExist 
 @csrf_exempt
 def adminlogin(request):
     if request.method == 'POST':
@@ -1424,30 +1585,37 @@ def adminlogin(request):
         email = data['email']
         password = data['password']
 
-        admin = Administrateur.objects.get(email=email)
-        admin_stored_password = admin.password
+        try:
+            admin = Administrateur.objects.get(email=email)
+            admin_stored_password = admin.password
 
-        if bcrypt.checkpw(password.encode('utf-8'), admin_stored_password.encode('utf-8')):
-            serializer = administrateurSerializer(admin)
-            token = RefreshToken.for_user(admin)
+            if bcrypt.checkpw(password.encode('utf-8'), admin_stored_password.encode('utf-8')):
+                serializer = administrateurSerializer(admin)
+                token = RefreshToken.for_user(admin)
 
+                return JsonResponse({
+                    'status': 200,
+                    'success': True,
+                    'message': 'Connecté avec succès',
+                    'nom': admin.nom,
+                    'email': admin.email,
+                    'contact': admin.contact,
+                    'token': {
+                        'access': str(token.access_token),
+                        'refresh': str(token),
+                    }
+                })
+            else:
+                return JsonResponse({
+                    'status': 400,
+                    'success': False,
+                    'message': 'Mot de passe incorrect'
+                })
+        except ObjectDoesNotExist:
             return JsonResponse({
-                'status': 200,
-                'success': True,
-                'message': 'Connecté avec succès',
-                'nom': admin.nom,
-                'email': admin.email ,
-                'contact': admin.contact,
-                'token': {
-                    'access': str(token.access_token),
-                    'refresh': str(token),
-                }
-            })
-        else:
-            return JsonResponse({
-                'status': 400,
+                'status': 404,
                 'success': False,
-                'message': 'Options de connexion invalides'
+                'message': 'L\'email fourni n\'existe pas'
             })
 
  

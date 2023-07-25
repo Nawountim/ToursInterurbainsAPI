@@ -40,10 +40,13 @@ urlpatterns = [
     path('get_nondisponible_chauffeur', views.get_nondisponible_chauffeur),
     path('get_trajet', views.get_trajet),
     path('get_vehicule', views.get_vehicule),
+    path('get_vehicules_acceptes', views.get_vehicules_acceptes),
+    path('get_vehicules_non_acceptes', views.get_vehicules_non_acceptes),
     path('get_disponible_vehicule', views.get_disponible_vehicule),
     path('get_one_vehicule', views.get_one_vehicule),
     path('get_vehicules_by_proprietaire/<int:proprietaire_id>', views.get_vehicules_by_proprietaire),
-    path('get_tour', views.get_tour),
+    path('get_tour', views.get_tour), 
+    path('get_tour_disponible', views.get_tour_disponible),
     path('get_one_tour/<int:id>', views.get_one_tour),
     path('get_tour_by_idtour/<str:id_tour>', views.get_tour_by_idtour),
     path('get_tour_by_chauffeur/<int:chauffeur_id>', views.get_tour_by_chauffeur),
@@ -55,8 +58,10 @@ urlpatterns = [
     path('get_momo_transactions_by_phone/<int:phone_number>', views.get_momo_transactions_by_phone),
     path('get_reservation', views.get_reservation),
     path('get_reservation_by_idres/<str:id_reservation>', views.get_reservation_by_idres),
-    path('get_reservations_by_voyageur', views.get_reservations_by_voyageur),
+    path('get_reservations_by_voyageur/<int:voyageur_id>', views.get_reservations_by_voyageur),
     path('get_reservations_by_utilisateur', views.get_reservations_by_utilisateur),
+    path('get_reservations_by_tour/tour/<int:tour_id>', views.get_reservations_by_tour),
+
 
 
 
@@ -69,6 +74,7 @@ urlpatterns = [
     path('create_utilisateur', views.create_utilisateur), 
     path('create_administrateur', views.create_administrateur),   
     path('create_proprietaire', views.create_proprietaire),
+    path('create_voyageur', views.create_voyageur), 
     path('create_chauffeur', views.create_chauffeur),
     path('create_trajet', views.create_trajet),
     path('create_vehicule', views.create_vehicule),
