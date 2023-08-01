@@ -108,17 +108,18 @@ class Vehicule(models.Model):
 #Classe Trajet
    
 class Trajet(models.Model):
-    # Champs du tour
-    id = models.AutoField(primary_key= True)
-    libelle =  models.CharField(max_length=50)
+    # Champs du trajet
+    id = models.AutoField(primary_key=True)
+    libelle = models.CharField(max_length=50)
     distance = models.FloatField()
-    prix = models.FloatField()
-    longitude = models.FloatField()
-    latitude = models.FloatField()
-    
+    start_longitude = models.FloatField()
+    start_latitude = models.FloatField()
+    end_longitude = models.FloatField()
+    end_latitude = models.FloatField()
+
     def __str__(self):
         return f"{self.libelle}"
-    
+
     class Meta:
         db_table = "trajet"
          
@@ -130,6 +131,7 @@ class Tour(models.Model):
     id = models.AutoField(primary_key= True)
     id_tour = models.CharField(max_length=10, unique=True)
     libelle  = models.CharField(max_length=50)
+    prix = models.FloatField()
     statut = models.BooleanField(default=True)
     chauffeur_id = models.ForeignKey(Chauffeur, on_delete=models.SET_NULL, null=True, blank=True)
     vehicule_id = models.ForeignKey(Vehicule, on_delete=models.SET_NULL, null=True, blank=True)
@@ -159,10 +161,11 @@ class Reservation(models.Model):
     tour_id = models.ForeignKey(Tour, on_delete=models.CASCADE, related_name='reservations')
     latitude_pickup = models.FloatField()
     longitude_pickup = models.FloatField()
+    prix = models.FloatField()
     statut_paiement = models.BooleanField(default=False)
     canal_paiement = models.CharField(max_length=20, default="")
     transaction_type = models.ForeignKey(ContentType, on_delete=models.SET_NULL, null=True)
-    transaction_id = models.PositiveIntegerField(null=True)
+    transaction_id = models.TextField(null=True)
     transaction = GenericForeignKey('transaction_type', 'transaction_id')
     date = models.DateTimeField(auto_now_add=True)
 
@@ -177,7 +180,7 @@ class Reservation(models.Model):
 
 class Momo_transaction(models.Model):
     id = models.AutoField(primary_key=True)     
-    id_requete = models.CharField(max_length = 75)
+    id_requete = models.TextField(max_length = 75)
     statuscode = models.CharField(max_length = 25, null= False)
     message =  models.CharField(max_length = 30)
     numero_transaction = models.BigIntegerField()

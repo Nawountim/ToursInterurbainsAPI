@@ -43,7 +43,7 @@ urlpatterns = [
     path('get_vehicules_acceptes', views.get_vehicules_acceptes),
     path('get_vehicules_non_acceptes', views.get_vehicules_non_acceptes),
     path('get_disponible_vehicule', views.get_disponible_vehicule),
-    path('get_one_vehicule', views.get_one_vehicule),
+    path('get_one_vehicule/<int:id>', views.get_one_vehicule),
     path('get_vehicules_by_proprietaire/<int:proprietaire_id>', views.get_vehicules_by_proprietaire),
     path('get_tour', views.get_tour), 
     path('get_tour_disponible', views.get_tour_disponible),
@@ -99,6 +99,10 @@ urlpatterns = [
 #Delete
    
     path('delete_utilisateur/<int:id>', views.delete_utilisateur), 
+    path('delete_vehicule/<int:id>', views.delete_vehicule), 
+    path('delete_trajet/<int:id>', views.delete_trajet), 
+    path('delete_chauffeur/<int:id>', views.delete_chauffeur), 
+
     
     
 #Login

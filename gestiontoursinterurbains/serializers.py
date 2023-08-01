@@ -34,17 +34,17 @@ class vehiculeSerializer(serializers.ModelSerializer):
 class trajetSerializer(serializers.ModelSerializer):
     class Meta:
         model = Trajet
-        fields = ['libelle','distance','prix','longitude', 'latitude']
+        fields = ['libelle','distance','start_longitude', 'start_latitude','end_longitude','end_latitude']
 
 class tourSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tour
-        fields = ['libelle','chauffeur_id','vehicule_id', 'date','heure','trajet_id', 'capacite']
+        fields = ['libelle','chauffeur_id','vehicule_id', 'date','heure','trajet_id' ,'prix', 'capacite']
             
 class reservationSerializer(serializers.ModelSerializer):
     class Meta:
             model = Reservation         
-            fields = ['nb_place','tour_id','latitude_pickup', 'longitude_pickup']
+            fields = ['nb_place','tour_id','latitude_pickup','prix','longitude_pickup']
         
                                
 class momoTransactionSerializer(serializers.ModelSerializer):

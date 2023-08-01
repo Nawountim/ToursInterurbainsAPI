@@ -136,3 +136,34 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ORIGIN_ALLOW_ALL = True
 
+from decouple import config
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST= 'smtp.gmail.com'
+EMAIL_PORT= 587
+EMAIL_HOST_USER= 'arnaudgbati22@gmail.com'
+EMAIL_USE_TLS= True 
+EMAIL_USE_SSL = False  # Nouveau paramètre ajouté
+EMAIL_TIMEOUT = 60  # Nouveau paramètre ajouté
+
+
+""" EMAIL_HOST_PASSWORD= 'Arnaud2020'
+
+ """
+# OAuth 2.0 settings
+SOCIAL_AUTH_GOOGLE_OAUTH2_KEY = '711850831231-arngop5d315bm1v9gfkfnrjrcuhg5r7k.apps.googleusercontent.com'
+SOCIAL_AUTH_GOOGLE_OAUTH2_SECRET = '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'
+SOCIAL_AUTH_GOOGLE_OAUTH2_SCOPE = ['https://www.googleapis.com/auth/gmail.send']
+
+AUTHENTICATION_BACKENDS = [
+    'social_core.backends.google.GoogleOAuth2',
+    'django.contrib.auth.backends.ModelBackend',
+]
+
+
+
+""" EMAIL_HOST = config('EMAIL_HOST')
+EMAIL_PORT = config('EMAIL_PORT', cast=int)
+EMAIL_HOST_USER = config('EMAIL_HOST_USER')
+EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD')
+EMAIL_USE_TLS = config('EMAIL_USE_TLS', cast=bool) """

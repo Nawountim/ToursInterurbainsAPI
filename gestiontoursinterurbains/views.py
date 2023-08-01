@@ -22,6 +22,9 @@ from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models import F
+from django.core.mail import send_mail
+from django.conf import settings
+
 
 
 # Create your views here.
@@ -55,6 +58,7 @@ def create_utilisateur(request):
         data = json.loads(request.body)
         serializer = utilisateurSerializer(data=data)
         return create_user(data, serializer, "Utilisateur")
+        login(data)
     return redirect("/get_utilisateur")
 
 
@@ -65,7 +69,7 @@ def create_utilisateur(request):
 #Liste des utilisateurs
 def get_utilisateur(request):
     data = { "utilisateurs": [] }
-    utilisateurs = Utilisateur.objects.all()
+    utilisateurs = Utilisateur.objects.all().order_by('-id')
     for utilisateur in utilisateurs:
         data["utilisateurs"].append({
             "id": utilisateur.id,
@@ -112,13 +116,14 @@ def get_one_utilisateur(request, id):
 @csrf_exempt
 def update_utilisateur(request, id):
     utilisateur = get_object_or_404(Utilisateur, id=id)
-    if request.method == 'POST':
+    if request.method == 'PATCH':
         data = json.loads(request.body)
         serializer = utilisateurSerializer(utilisateur, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()  # Utilisez serializer.save() pour enregistrer les modifications
-            return JsonResponse({"info": "utilisateur modifié"})
-        return JsonResponse({"error": serializer.errors}, status=400)
+            return JsonResponse({"info": "utilisateur modifié","status":200})
+        return JsonResponse({"error": serializer.errors,"status":400})
+    return JsonResponse({"info": "Modification effectuée"})
 
 
 #Suppression d'un utilisateur
@@ -372,14 +377,18 @@ def update_chauffeur_availability(request, id):
 #Suppression d'un chauffeur
 @csrf_exempt
 def delete_chauffeur(request, id):
-    chauffeur = Chauffeur.objects.get(id=id)
-    chauffeur.delete()                                                    
+    chauffeur = get_object_or_404(Chauffeur, id=id)
     
+     # Vérifier si le véhicule est affecté à des tours
+    if chauffeur.tour_set.exists():
+        # Si le véhicule est lié à des tours, renvoyer une réponse indiquant qu'il ne peut pas être supprimé
+        return JsonResponse({'message': 'Ce Chauffeur est affecté à des tours et ne peut pas être encore supprimé.', 'status': 400})
+
+    chauffeur.delete()  
     
-    
-    
-                                ### Fonction de la classe Trajet  ###
-    
+    return HttpResponse({'message':'Chauffeur supprimé avec succès.','status':200})                                                        
+
+ 
 ### Creer un trajet
 @csrf_exempt
 def create_trajet(request):
@@ -388,10 +397,10 @@ def create_trajet(request):
         serializer = trajetSerializer(data=data)
         if serializer.is_valid():
             serializer.save()
-            return JsonResponse({"Info": "Trajet créé"})
+            return JsonResponse({"message": "Trajet créé", "code":200})
         else:
          #return JsonResponse({"error": serializer.errors})
-         return JsonResponse({"Info":"Trajet non créé"})
+         return JsonResponse({"message":"Trajet non créé", "code":400})
     return redirect("/get_trajet")   
 
  
@@ -406,9 +415,10 @@ def get_trajet(request):
             "id": trajet.id,
             "libelle": trajet.libelle,
             "distance": trajet.distance,
-            "prix": trajet.prix,
-            "longitude": trajet.longitude,
-            "latitude": trajet.latitude,
+            "start_longitude": trajet.start_longitude,
+            "start_latitude": trajet.start_latitude,
+            "end_longitude": trajet.end_longitude,
+            "end_latitude": trajet.end_latitude,
                                   })
         """ Envoyer sous forme de Json: API """
     return JsonResponse(data)            
@@ -430,11 +440,26 @@ def update_trajet(request, id):
 #Suppression d'un trajet
 @csrf_exempt
 def delete_trajet(request, id):
-    trajet = Trajet.objects.get(id=id)
-    trajet.delete() 
-    
-    
+    trajet = get_object_or_404(Trajet, id=id)  
+    if trajet.tour_set.exists():
+        # Si le véhicule est lié à des tours, renvoyer une réponse indiquant qu'il ne peut pas être supprimé
+        return JsonResponse({'message': 'Ce Trajet est affecté à des tours et ne peut pas être encore supprimé.', 'status': 400})
 
+    trajet.delete()    
+    return HttpResponse({'message':'Trajet supprimé avec succès.','status':200}) 
+
+    
+def delete_chauffeur(request, id):
+    chauffeur = get_object_or_404(Chauffeur, id=id)
+    
+     # Vérifier si le véhicule est affecté à des tours
+    if chauffeur.tour_set.exists():
+        # Si le véhicule est lié à des tours, renvoyer une réponse indiquant qu'il ne peut pas être supprimé
+        return JsonResponse({'message': 'Ce Chauffeur est affecté à des tours et ne peut pas être encore supprimé.', 'status': 400})
+
+    chauffeur.delete()  
+    
+    return HttpResponse({'message':'Chauffeur supprimé avec succès.','status':200}) 
                                 ### Fonction de la classe Vehicule  ###
 
 ### Creer un Vehicule
@@ -662,8 +687,17 @@ def update_vehicule_availability(request, id):
 #Suppression d'un Vehicule
 @csrf_exempt
 def delete_vehicule(request, id):
-    vehicule = Vehicule.objects.get(id=id)
-    vehicule.delete()    
+    vehicule = get_object_or_404(Vehicule, id=id)
+
+    # Vérifier si le véhicule est affecté à des tours
+    if vehicule.tour_set.exists():
+        # Si le véhicule est lié à des tours, renvoyer une réponse indiquant qu'il ne peut pas être supprimé
+        return JsonResponse({'message': 'Ce véhicule est affecté à des tours et ne peut pas être supprimé.', 'status': 400})
+
+    # Si le véhicule n'est lié à aucun tour, vous pouvez le supprimer en toute sécurité
+    vehicule.delete()
+
+    return HttpResponse({'message':'Véhicule supprimé avec succès.','status':200})  
     
     
      
@@ -676,23 +710,26 @@ def create_tour(request):
     if request.method == "POST":
         data = json.loads(request.body)
         chauffeur_id = data['chauffeur_id']
+        date = data['date']
+        heure = data['heure']
+        libelle = data['libelle']
         vehicule_id = data['vehicule_id']
         trajet_id = data['trajet_id']
         serializer = tourSerializer(data=data)
         try:
                 chauffeur = Chauffeur.objects.get(id=chauffeur_id)
         except Chauffeur.DoesNotExist:
-                return JsonResponse({"error": "Le chauffeur spécifié n'existe pas.", "code": 404})
+                return JsonResponse({"message": "Le chauffeur spécifié n'existe pas.", "code": 404})
 
         try:
                 vehicule = Vehicule.objects.get(id=vehicule_id)
         except Vehicule.DoesNotExist:
-                return JsonResponse({"error": "Le véhicule spécifié n'existe pas.", "code": 404})
+                return JsonResponse({"message": "Le véhicule spécifié n'existe pas.", "code": 404})
 
         try:
                 trajet = Trajet.objects.get(id=trajet_id)
         except Trajet.DoesNotExist:
-                return JsonResponse({"error": "Le trajet spécifié n'existe pas.", "code": 404})
+                return JsonResponse({"message": "Le trajet spécifié n'existe pas.", "code": 404})
 
 
         if serializer.is_valid():
@@ -714,10 +751,30 @@ def create_tour(request):
             # Assigner l'identifiant du tour au tour créée
             tour.id_tour = id_tour
             tour.save()
-            return JsonResponse({"Info": "Tour créé"})
+            
+            # Envoyer un email au chauffeur
+            """ 
+            send_mail(
+                subject="Vous avez été affecté à une nouvelle tournée",
+                message=r"Cher {chauffeur.user_id.nom} {chauffeur.user_id.prenom},\n\n Vous avez été affecté à la tournée : {libelle}.\n\n Cordialement,\n Notre nom d'entreprise",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[chauffeur.user_id.email],
+                fail_silently=False,
+            )
+
+            # Sending email to the vehicle owner
+            send_mail(
+                subject="Votre véhicule a été affecté à une nouvelle tournée",
+                message=r"Cher propriétaire du véhicule,\n\n Votre véhicule {vehicule.marque} a été affecté à la tournée  : {libelle}.\n\n Cordialement,\nNotre nom d'entreprise",
+                from_email=settings.EMAIL_HOST_USER,
+                recipient_list=[vehicule.proprietaire_id.user_id.email],
+                fail_silently=False,
+            ) """
+
+            return JsonResponse({"message": "Tour créé", "code": 200 })
         else:
          #return JsonResponse({"error": serializer.errors})
-            return JsonResponse({"Info":"Serializer invalide"})
+            return JsonResponse({"message":"Serializer invalide" , "code": 400})
     return redirect("/get_tour")   
 
  
@@ -726,12 +783,13 @@ def create_tour(request):
 #Liste des Tours
 def get_tour(request):
     data = { "tours": [] }
-    tours = Tour.objects.all().order_by('-date')
+    tours = Tour.objects.all().order_by('-id')
 
     for tour in tours:
         data["tours"].append({
             "id": tour.id,
            "libelle": tour.libelle,
+            "prix": tour.prix,
             "id_tour": tour.id_tour,
             "statut": tour.statut,
             "chauffeur_id": tour.chauffeur_id.id,
@@ -761,6 +819,7 @@ def get_tour_disponible(request):
             "id": tour.id,
             "libelle": tour.libelle,
             "id_tour": tour.id_tour,
+             "prix": tour.prix,
             "statut": tour.statut,
             "chauffeur_id": tour.chauffeur_id.id,
             "chauffeur_nom": tour.chauffeur_id.user_id.nom,
@@ -785,6 +844,7 @@ def get_one_tour(request, id):
             "id": tour.id,
             "libelle": tour.libelle,
             "id_tour": tour.id_tour,
+             "prix": tour.prix,
             "statut": tour.statut,
             "chauffeur_id": tour.chauffeur_id.id,
             "chauffeur_nom": tour.chauffeur_id.user_id.nom,
@@ -810,6 +870,7 @@ def get_tour_by_idtour(request, id_tour):
             "libelle": tour.libelle,
             "id_tour": tour.id_tour,
             "statut": tour.statut,
+            "prix": tour.prix,
             "chauffeur_id": tour.chauffeur_id.id,
             "chauffeur_nom": tour.chauffeur_id.user_id.nom,
             "vehicule_id": tour.vehicule_id.id,
@@ -836,6 +897,7 @@ def get_tour_by_chauffeur(request, chauffeur_id):
                "libelle": tour.libelle,
                 "id_tour": tour.id_tour,
                 "libelle": tour.libelle,
+                "prix": tour.prix,
                 "statut": tour.statut,
                 "chauffeur_id": tour.chauffeur_id.id,
                 "chauffeur_nom": tour.chauffeur_id.user_id.nom, 
@@ -863,6 +925,7 @@ def get_tour_by_vehicule(request, vehicule_id):
                 "libelle": tour.libelle,
                 "id_tour": tour.id_tour,
                 "libelle": tour.libelle,
+                 "prix": tour.prix,
                 "statut": tour.statut,
                 "chauffeur_id": tour.chauffeur_id.id,
                 "chauffeur_nom": tour.chauffeur_id.user_id.nom,
@@ -1054,6 +1117,7 @@ def delete_wallet_transaction(request, id):
 ### Creer un Momo_transaction
 @csrf_exempt
 def create_momo_transaction(request, id_reservation):
+    #id_service peut etre celui d'une reservation ou d'un utilisateurs
     data = json.loads(request.body)
     # Extraire les informations de la réponse en fonction de l'opérateur
     if "code" in data:  # TMONEY
@@ -1068,61 +1132,51 @@ def create_momo_transaction(request, id_reservation):
         transaction_type = data["typeRequete"]
         user_id = data["user_id"]
         
+        momo_transaction = Momo_transaction.objects.create(
+        id_requete=id_requete,
+        statuscode=statuscode,
+        message=message,
+        numero_transaction=numero_transaction,
+        montant=montant,
+        reference_operateur_id=reference_operateur_id,
+        operateur=operateur,
+        type=transaction_type,
+        user_id=user_id,
+          )
+        if statuscode == "2002":
 
-        # Vérifier si l'ID de réservation correspond à une réservation existante
-        try:
-            reservation = Reservation.objects.get(id_reservation=id_reservation)
-        except Reservation.DoesNotExist:
-            reservation = None
+            # Vérifier si l'ID de réservation correspond à une réservation existante
+            try:
+                reservation = Reservation.objects.get(id_reservation=id_reservation)
+            except Reservation.DoesNotExist:
+                reservation = None
 
-        if reservation:
-            # Créer la transaction Momo et l'associer à la réservation
-            momo_transaction = Momo_transaction.objects.create(
-                id_requete=id_requete,
-                statuscode=statuscode,
-                message=message,
-                numero_transaction=numero_transaction,
-                montant=montant,
-                reference_operateur_id=reference_operateur_id,
-                operateur=operateur,
-                type=transaction_type,
-                user_id = user_id,
-               
-            )
+            if reservation:
+                # Créer la transaction Momo et l'associer à la réservation
+            
+                # Mettre à jour le champ canal_paiement dans la réservation
+                reservation.statut_paiement = True
+                reservation.canal_paiement = "Momo Transaction"
+                reservation.transaction_type = ContentType.objects.get_for_model(Momo_transaction)
+                reservation.transaction_id = momo_transaction.id_requete
+                reservation.save()
 
-            # Mettre à jour le champ canal_paiement dans la réservation
-            reservation.statut_paiement = True
-            reservation.canal_paiement = "Momo Transaction"
-            reservation.transaction_type = ContentType.objects.get_for_model(Momo_transaction)
-            reservation.transaction_id = momo_transaction.id_requete
-            reservation.save()
+                # Renvoyer une réponse JSON avec le statut de création
+                return JsonResponse({"success": True, "message": "Momo transaction créée avec succès"})
+            try:
+                utilisateur = Utilisateur.objects.get(id=int(id_reservation))
+            except Utilisateur.DoesNotExist:
+                utilisateur = None
 
-            # Renvoyer une réponse JSON avec le statut de création
-            return JsonResponse({"success": True, "message": "Momo transaction créée avec succès"})
-        try:
-            utilisateur = Utilisateur.objects.get(id=int(id_reservation))
-        except Utilisateur.DoesNotExist:
-            utilisateur = None
+            if utilisateur:
+                # Mettre à jour le portefeuille de l'utilisateur avec le montant de la transaction
+                utilisateur.portefeuille += montant
+                utilisateur.save()
+                # Créer la transaction Momo sans association à une réservation
+                
 
-        if utilisateur:
-            # Mettre à jour le portefeuille de l'utilisateur avec le montant de la transaction
-            utilisateur.portefeuille += montant
-            utilisateur.save()
-            # Créer la transaction Momo sans association à une réservation
-            momo_transaction = Momo_transaction.objects.create(
-                id_requete=id_requete,
-                statuscode=statuscode,
-                message=message,
-                numero_transaction=numero_transaction,
-                montant=montant,
-                reference_operateur_id=reference_operateur_id,
-                operateur=operateur,
-                type=transaction_type,
-                user_id=user_id,
-            )
-
-            # Renvoyer une réponse JSON avec le statut de création
-            return JsonResponse({"success": True, "message": "Momo transaction créée avec succès"})
+                # Renvoyer une réponse JSON avec le statut de création
+                return JsonResponse({"success": True, "message": "Momo transaction créée avec succès"})
         
     elif "status" in data:  # FLOOZ
         # Extraire les données de la transaction Momo
@@ -1135,61 +1189,52 @@ def create_momo_transaction(request, id_reservation):
         operateur = data["operateur"]
         transaction_type =  data["transaction_type"]
         user_id = data["user_id"]  
+        
+        momo_transaction = Momo_transaction.objects.create(
+        id_requete=id_requete,
+        statuscode=statuscode,
+        message=message,
+        numero_transaction=numero_transaction,
+        montant=montant,
+        reference_operateur_id=reference_operateur_id,
+        operateur=operateur,
+        type=transaction_type,
+        user_id=user_id,
+          )
+        if statuscode == "0":
 
-        # Vérifier si l'ID de réservation correspond à une réservation existante
-        try:
-            reservation = Reservation.objects.get(id_reservation=id_reservation)
-        except Reservation.DoesNotExist:
-            reservation = None
+            # Vérifier si l'ID de réservation correspond à une réservation existante
+            try:
+                reservation = Reservation.objects.get(id_reservation=id_reservation)
+            except Reservation.DoesNotExist:
+                reservation = None
 
-        if reservation:
-            # Créer la transaction Momo et l'associer à la réservation
-            momo_transaction = Momo_transaction.objects.create(
-                id_requete=id_requete,
-                statuscode=statuscode,
-                message=message,
-                numero_transaction=numero_transaction,
-                montant=montant,
-                reference_operateur_id=reference_operateur_id,
-                operateur=operateur,
-                type=transaction_type,
-                user_id=user_id,
-               
-            )
+            if reservation:
+                # Créer la transaction Momo et l'associer à la réservation
+            
+                # Mettre à jour le champ canal_paiement dans la réservation
+                reservation.statut_paiement = True
+                reservation.canal_paiement = "Momo Transaction"
+                reservation.transaction_type = ContentType.objects.get_for_model(Momo_transaction)
+                reservation.transaction_id = momo_transaction.id_requete
+                reservation.save()
 
-            # Mettre à jour le champ canal_paiement dans la réservation
-            reservation.statut_paiement = True
-            reservation.canal_paiement = "Momo Transaction"
-            reservation.transaction_type = ContentType.objects.get_for_model(Momo_transaction)
-            reservation.transaction_id = momo_transaction.id_requete
-            reservation.save()
+                # Renvoyer une réponse JSON avec le statut de création
+                return JsonResponse({"success": True, "message": "Momo transaction créée avec succès"})
+            try:
+                utilisateur = Utilisateur.objects.get(id=int(id_reservation))
+            except Utilisateur.DoesNotExist:
+                utilisateur = None
 
-            # Renvoyer une réponse JSON avec le statut de création
-            return JsonResponse({"success": True, "message": "Momo transaction créée avec succès"})
-        try:
-            utilisateur = Utilisateur.objects.get(id=int(id_reservation))
-        except Utilisateur.DoesNotExist:
-            utilisateur = None
+            if utilisateur:
+                # Mettre à jour le portefeuille de l'utilisateur avec le montant de la transaction
+                utilisateur.portefeuille += montant
+                utilisateur.save()
+                # Créer la transaction Momo sans association à une réservation
+            
 
-        if utilisateur:
-            # Mettre à jour le portefeuille de l'utilisateur avec le montant de la transaction
-            utilisateur.portefeuille += montant
-            utilisateur.save()
-            # Créer la transaction Momo sans association à une réservation
-            momo_transaction = Momo_transaction.objects.create(
-                id_requete=id_requete,
-                statuscode=statuscode,
-                message=message,
-                numero_transaction=numero_transaction,
-                montant=montant,
-                reference_operateur_id=reference_operateur_id,
-                operateur=operateur,
-                type=transaction_type,
-                user_id=user_id,
-            )
-
-            # Renvoyer une réponse JSON avec le statut de création
-            return JsonResponse({"success": True, "message": "Momo transaction créée avec succès"})
+                # Renvoyer une réponse JSON avec le statut de création
+                return JsonResponse({"success": True, "message": "Momo transaction créée avec succès"})
         
     # Si la transaction n'a pas été créée ou l'ID de réservation est invalide, renvoyer une réponse JSON avec un statut d'échec
     return JsonResponse({"success": False, "message": "Échec de la création de la momo transaction"})
@@ -1198,7 +1243,8 @@ def create_momo_transaction(request, id_reservation):
 #Liste des Momo_transactions
 def get_momo_transaction(request):
     data = { "momo_transactions": [] }
-    momo_transactions = Momo_transaction.objects.all()
+    momo_transactions = Momo_transaction.objects.all().order_by('-id')
+    
     for momo_transaction in momo_transactions:
         data["momo_transactions"].append({
             "id_requete": momo_transaction.id_requete,
@@ -1350,8 +1396,11 @@ def get_reservation(request):
             "id_reservation": reservation.id_reservation,
             "voyageur_id": reservation.voyageur_id.id,
             "voyageur_nom": reservation.voyageur_id.nom_complet,
-            "nb_place": reservation.nb_place,           
+            "nb_place": reservation.nb_place,  
+            "prix": reservation.prix,         
             "date": reservation.date,
+            "tour_date": reservation.tour_id.date,
+            "tour_heure": reservation.tour_id.heure,
             "tour_id": reservation.tour_id.id,
             "tour_libelle": reservation.tour_id.libelle,
             "latitude_pickup": reservation.latitude_pickup,
@@ -1376,8 +1425,12 @@ def get_reservation_by_idres(request, id_reservation):
             "voyageur_id": reservation.voyageur_id.id,
             "voyageur_nom": reservation.voyageur_id.nom_complet,
             "nb_place": reservation.nb_place,
+            "prix": reservation.prix, 
             "date": reservation.date,
             "tour_id": reservation.tour_id.id,
+            "tour_libelle": reservation.tour_id.libelle,
+            "tour_date": reservation.tour_id.date,
+            "tour_heure": reservation.tour_id.heure,
             "latitude_pickup": reservation.latitude_pickup,
             "longitude_pickup": reservation.longitude_pickup,
             "statut": reservation.statut_paiement,
@@ -1403,7 +1456,10 @@ def get_reservations_by_tour(request, tour_id):
                 "voyageur_id": reservation.voyageur_id.id,
                 "voyageur_nom": reservation.voyageur_id.nom_complet,
                 "nb_place": reservation.nb_place,
+                "prix": reservation.prix, 
                 "tour_id": reservation.tour_id.id,
+                "tour_date": reservation.tour_id.date,
+                 "tour_heure": reservation.tour_id.heure,
                  "date": reservation.date,
                 "latitude_pickup": reservation.latitude_pickup,
                 "longitude_pickup": reservation.longitude_pickup,
@@ -1432,8 +1488,11 @@ def get_reservations_by_voyageur(request, voyageur_id):
             "voyageur_id": reservation.voyageur_id.id,
             "voyageur_nom": reservation.voyageur_id.nom_complet,
             "nb_place": reservation.nb_place,
+            "prix": reservation.prix, 
             "tour_id": reservation.tour_id.id,
-             "date": reservation.date,
+            "date": reservation.date,
+            "tour_date": reservation.tour_id.date,
+            "tour_heure": reservation.tour_id.heure,
             "libelle_tour": reservation.tour_id.libelle,
             "trajet": reservation.tour_id.trajet_id.libelle,
             "latitude_pickup": reservation.latitude_pickup,
@@ -1457,8 +1516,11 @@ def get_reservations_by_utilisateur(request, utilisateur_id):
             "id_reservation": reservation.id_reservation,
             "voyageur_id": reservation.voyageur_id,
             "voyageur_nom": reservation.voyageur_id.nom_complet,
+            "prix": reservation.prix, 
             "nb_place": reservation.nb_place,
             "tour_id": reservation.tour_id,
+            "tour_date": reservation.tour_id.date,
+            "tour_heure": reservation.tour_id.heure,
              "Heure": reservation.tour_id.heure,
              "date": reservation.date,
             "latitude_pickup": reservation.latitude_pickup,
@@ -1537,9 +1599,9 @@ def login(request):
                 role_id = None
                 if user.is_voyageur:
                     role_id = Voyageur.objects.get(user_id=user.id).id
-                if user.is_fournisseur:
+                elif user.is_fournisseur:
                     role_id = Proprietaire.objects.get(user_id=user.id).id
-                if user.is_chauffeur:
+                elif user.is_chauffeur:
                     role_id = Chauffeur.objects.get(user_id=user.id).id
 
                 return JsonResponse({
