@@ -142,17 +142,19 @@ def create_proprietaire(request):
         proprietaire_serializer = proprietaireSerializer(data=data)
         
         if proprietaire_serializer.is_valid():
-            proprietaire_serializer.save()  # Sauvegarde du voyageur créé
+            proprietaire_instance = proprietaire_serializer.save()  # Sauvegarde du voyageur créé
+            proprietaire_id = proprietaire_instance.id
             utilisateur = update_id  # Récupération de l'ID de l'utilisateur associé au voyageur
             utilisateur_obj = Utilisateur.objects.get(id=utilisateur)  # Récupération de l'objet utilisateur complet
             
             utilisateur_obj.is_fournisseur = True  # Mise à jour du champ is_voyageur à True
             utilisateur_obj.save()  # Sauvegarde de l'utilisateur modifié
             
-            return JsonResponse({"Info": "Proprietaire créé", 'status':200})
+            return JsonResponse({"Info": "Proprietaire créé", 'status':200, 'role_id': proprietaire_id})
         else:
             return JsonResponse({"Info": "Proprietaire non créé", 'status':400})
     return redirect("/get_proprietaire")
+
 
 #Liste des Proprietaires
 def get_proprietaire(request):
@@ -203,12 +205,14 @@ def create_voyageur(request):
         voyageur_serializer = voyageurSerializer(data=voyageur_data)
         
         if voyageur_serializer.is_valid():
-            voyageur_serializer.save()  # Sauvegarde du voyageur créé
+            voyageur_instance =voyageur_serializer.save()  # Sauvegarde du voyageur créé
+            voyageur_id = voyageur_instance.id
+               
             
             utilisateur_obj.is_voyageur = True  # Mise à jour du champ is_voyageur à True
             utilisateur_obj.save()  # Sauvegarde de l'utilisateur modifié
             
-            return JsonResponse({"Info": "Voyageur créé", 'status':200})
+            return JsonResponse({"Info": "Voyageur créé", 'status':200, 'role_id': voyageur_id})
         else:
             return JsonResponse({"Info": "Voyageur non créé", "errors": voyageur_serializer.errors, 'status':400})
     
@@ -236,14 +240,16 @@ def create_chauffeur(request):
         update_id = data['user_id']
         serializer = chauffeurSerializer(data=data)
         if serializer.is_valid():
-            serializer.save()
+            chauffeur_instance = serializer.save()
+            chauffeur_id = chauffeur_instance.id
+                            
             utilisateur = update_id  # Récupération de l'ID de l'utilisateur associé au voyageur
             utilisateur_obj = Utilisateur.objects.get(id=utilisateur)  # Récupération de l'objet utilisateur complet
             
             utilisateur_obj.is_chauffeur = True  # Mise à jour du champ is_voyageur à True
             utilisateur_obj.save()  # Sauvegarde de l'utilisateur modifié
             
-            return JsonResponse({"Info": "chauffeur créé", 'status': 200})
+            return JsonResponse({"Info": "chauffeur créé", 'status': 200, 'role_id': chauffeur_id})
         else:
          #return JsonResponse({"error": serializer.errors})
          return JsonResponse({"Info":"chauffeur non créé", 'status': 400})
@@ -1414,6 +1420,7 @@ def get_reservation(request):
         """ Envoyer sous forme de Json: API """
     return JsonResponse(data)            
 # Obtenir une réservation par son ID_reservation
+
 def get_reservation_by_idres(request, id_reservation):
     try:
         reservation = Reservation.objects.get(id_reservation=str(id_reservation))
@@ -1441,7 +1448,40 @@ def get_reservation_by_idres(request, id_reservation):
         return JsonResponse(data)
     except Reservation.DoesNotExist:
         return JsonResponse({"error": "La réservation spécifiée n'existe pas."})
+    
+    
+def get_reservation_itineraire(request, id_reservation):
+    try:
+        reservation = Reservation.objects.get(id_reservation=str(id_reservation))
+        transaction_type = reservation.transaction_type.model if reservation.transaction_type else None
 
+        data = {
+            "id": reservation.id,
+            "id_reservation": reservation.id_reservation,
+            "voyageur_id": reservation.voyageur_id.id,
+            "voyageur_nom": reservation.voyageur_id.nom_complet,
+            "nb_place": reservation.nb_place,
+            "prix": reservation.prix, 
+            "date": reservation.date,
+            "tour_id": reservation.tour_id.id,
+            "tour_libelle": reservation.tour_id.libelle,
+            "trajet": reservation.tour_id.trajet_id.libelle,
+            "trajet_distance": reservation.tour_id.trajet_id.distance,
+            "trajet_start_longitude": reservation.tour_id.trajet_id.start_longitude,
+            "trajet_start_latitude": reservation.tour_id.trajet_id.start_latitude,
+            "trajet_end_longitude": reservation.tour_id.trajet_id.end_longitude,
+            "trajet_end_latitude": reservation.tour_id.trajet_id.end_latitude,
+            "tour_date": reservation.tour_id.date,
+            "tour_heure": reservation.tour_id.heure,
+            "latitude_pickup": reservation.latitude_pickup,
+            "longitude_pickup": reservation.longitude_pickup,
+
+        }
+        return JsonResponse(data)
+    except Reservation.DoesNotExist:
+        return JsonResponse({"error": "La réservation spécifiée n'existe pas."})
+    
+    
 # Obtenir les réservations pour un tour donné
 def get_reservations_by_tour(request, tour_id):
     try:
@@ -1548,9 +1588,18 @@ def update_reservation(request, id):
 #Suppression d'une Reservation
 @csrf_exempt
 def delete_reservation(request, id):
-    reservation = Reservation.objects.get(id=id)
-    reservation.delete()           
-    
+    try:
+        reservation = Reservation.objects.get(id=id) 
+        print(reservation.tour_id)   
+        tour = Tour.objects.get(id=reservation.tour_id.id)
+        tour.nb_reservation -= reservation.nb_place  # Soustraire le nombre de places réservées
+        tour.save()  # Enregistrez les modifications du nombre de réservations sur le tour
+        reservation.delete()  # Supprimez la réservation
+        return JsonResponse({"message": "Reservation annulée", "code": 200})
+    except Reservation.DoesNotExist:
+        return JsonResponse({"message": "La réservation n'existe pas", "code": 404})
+    except Tour.DoesNotExist:
+        return JsonResponse({"message": "Le tour associé à la réservation n'existe pas", "code": 404})
     
     
     

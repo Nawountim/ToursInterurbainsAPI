@@ -57,7 +57,8 @@ urlpatterns = [
     path('get_momo_transactions_by_user/<int:user_id>', views.get_momo_transactions_by_user),
     path('get_momo_transactions_by_phone/<int:phone_number>', views.get_momo_transactions_by_phone),
     path('get_reservation', views.get_reservation),
-    path('get_reservation_by_idres/<str:id_reservation>', views.get_reservation_by_idres),
+    path('get_reservation_by_idres/<str:id_reservation>', views.get_reservation_by_idres),          
+    path('get_reservation_itineraire/<str:id_reservation>', views.get_reservation_itineraire),          
     path('get_reservations_by_voyageur/<int:voyageur_id>', views.get_reservations_by_voyageur),
     path('get_reservations_by_utilisateur', views.get_reservations_by_utilisateur),
     path('get_reservations_by_tour/tour/<int:tour_id>', views.get_reservations_by_tour),
@@ -102,6 +103,8 @@ urlpatterns = [
     path('delete_vehicule/<int:id>', views.delete_vehicule), 
     path('delete_trajet/<int:id>', views.delete_trajet), 
     path('delete_chauffeur/<int:id>', views.delete_chauffeur), 
+    path('delete_reservation/<int:id>', views.delete_reservation), 
+
 
     
     
