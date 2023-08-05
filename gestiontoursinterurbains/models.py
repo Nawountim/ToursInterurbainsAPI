@@ -116,6 +116,10 @@ class Trajet(models.Model):
     start_latitude = models.FloatField()
     end_longitude = models.FloatField()
     end_latitude = models.FloatField()
+    
+    def nombre_emprunts(self):
+        return self.tour_set.count()
+
 
     def __str__(self):
         return f"{self.libelle}"

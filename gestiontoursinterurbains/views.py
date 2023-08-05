@@ -23,6 +23,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.db import transaction
 from django.db.models import F
 from django.core.mail import send_mail
+from django.db.models import Count, Sum
 from django.conf import settings
 
 
@@ -129,9 +130,35 @@ def update_utilisateur(request, id):
 #Suppression d'un utilisateur
 @csrf_exempt
 def delete_utilisateur(request, id):
-    utilisateur = Utilisateur.objects.get(id=id)
-    utilisateur.delete()
-    
+    try:
+        # Vérification de l'existence de l'utilisateur
+        utilisateur = Utilisateur.objects.get(id=id)
+
+        # Vérification et suppression dans la classe "Voyageur"
+        voyageur = Voyageur.objects.filter(user_id=utilisateur)
+        if voyageur.exists():
+            voyageur.delete()
+
+        # Vérification et suppression dans la classe "Proprietaire"
+        proprietaire = Proprietaire.objects.filter(user_id=utilisateur)
+        if proprietaire.exists():
+            proprietaire.delete()
+
+        # Vérification et suppression dans la classe "Chauffeur"
+        chauffeur = Chauffeur.objects.filter(user_id=utilisateur)
+        if chauffeur.exists():
+            chauffeur.delete()
+
+        # Suppression de l'utilisateur
+        utilisateur.delete()
+
+        return JsonResponse({"message": "Utilisateur supprimé", "code": 200})
+
+    except Utilisateur.DoesNotExist:
+        return JsonResponse({"message": "Utilisateur introuvable", "code": 404})
+    except Exception as e:
+        return JsonResponse({"message": "Utilisateur non supprimé", "code": 500})
+
     
                                 ###  Fonction de la classe Propriétaire  ###
 @csrf_exempt                            
@@ -625,6 +652,46 @@ def get_vehicules_by_proprietaire(request, proprietaire_id):
     except Vehicule.DoesNotExist:
         return JsonResponse({"error": "Aucun véhicule trouvé pour le propriétaire spécifié."})
     
+#Liste des véhicules par propriétaire et leur tours assignés    
+def get_vehicules_tours(request, id):
+    try:
+        vehicule = Vehicule.objects.get(id=id)
+        data = {
+            "vehicule": []
+        }
+
+        tours_assigned = Tour.objects.filter(vehicule_id=id)
+        tours_data = []
+
+        for tour in tours_assigned:
+            tours_data.append({
+                "id_tour": tour.id_tour,
+                "libelle": tour.libelle,
+                "date": tour.date,
+                "heure": tour.heure,
+                "statut": tour.statut,
+                "chauffeur": tour.chauffeur_id.user_id.nom if tour.chauffeur_id else None,
+                "trajet": tour.trajet_id.libelle if tour.trajet_id else None,
+                "capacite": tour.capacite,
+            })
+
+        data["vehicule"].append({
+            "id": vehicule.id,
+            "marque": vehicule.marque,
+            "visite_technique": vehicule.visite_technique,
+            "plaque": vehicule.plaque,
+            "statut": vehicule.statut,
+            "is_accepted": vehicule.is_accepted,
+            "nb_place": vehicule.nb_place,
+            "proprietaire_id": vehicule.proprietaire_id.id,
+            "proprietaire": vehicule.proprietaire_id.user_id.nom,
+            "tours_assigned": tours_data,
+        })
+
+        return JsonResponse(data)
+    except Vehicule.DoesNotExist:
+        return JsonResponse({"error": "Aucun véhicule trouvé avec l'ID spécifié."})
+
     
 #Modification d'un Vehicule
 @csrf_exempt
@@ -786,8 +853,34 @@ def create_tour(request):
  
 
             
-#Liste des Tours
+#Liste des Tours actifs
 def get_tour(request):
+    data = { "tours": [] }
+    tours = Tour.objects.all().filter(statut=True).order_by('-id')
+
+    for tour in tours:
+        data["tours"].append({
+            "id": tour.id,
+           "libelle": tour.libelle,
+            "prix": tour.prix,
+            "id_tour": tour.id_tour,
+            "statut": tour.statut,
+            "chauffeur_id": tour.chauffeur_id.id,
+            "chauffeur_nom": tour.chauffeur_id.user_id.nom,
+            "vehicule_id": tour.vehicule_id.id,
+            "vehicule": tour.vehicule_id.marque,
+            "nb_reservation": tour.nb_reservation,
+            "date": tour.date,
+            "heure": tour.heure,
+            "trajet_id": tour.trajet_id.id,
+            "trajet": tour.trajet_id.libelle,
+            "capacite": tour.capacite,
+                                  })
+        """ Envoyer sous forme de Json: API """
+    return JsonResponse(data) 
+   
+#Liste de tous les tours
+def get_all_tours(request):
     data = { "tours": [] }
     tours = Tour.objects.all().order_by('-id')
 
@@ -811,14 +904,16 @@ def get_tour(request):
                                   })
         """ Envoyer sous forme de Json: API """
     return JsonResponse(data) 
-   
+
+
+
 
 #Liste des Tours disponible(nb_place > 0)
 def get_tour_disponible(request):
     data = { "tours": [] }
 
     # Sélectionner les tours où nb_reservation est inférieur à capacité
-    tours = Tour.objects.filter(nb_reservation__lt=F('capacite')).order_by('-date')
+    tours = Tour.objects.filter(nb_reservation__lt=F('capacite'), statut = True).order_by('-date')
 
     for tour in tours:
         data["tours"].append({
@@ -1389,7 +1484,6 @@ def create_reservation(request):
 
 
  
-
             
 #Liste des Reservations
 def get_reservation(request):
@@ -1729,4 +1823,27 @@ def adminlogin(request):
                 'message': 'L\'email fourni n\'existe pas'
             })
 
+ 
+#LES STATISTIQUES
+
+def trajets_plus_empruntes(request):
+    trajets = Trajet.objects.all()
+    data = [{'libelle': trajet.libelle, 'nombre_utilisation': trajet.nombre_emprunts()} for trajet in trajets]
+    return JsonResponse({'trajets': data}, safe=False)
+
+
+def vehicules_plus_utilises():
+    vehicules = Vehicule.objects.annotate(nb_utilisations=Count('tour')).order_by('-nb_utilisations')
+    return vehicules
+
+
+def chauffeurs_plus_sollicites():
+    chauffeurs = Chauffeur.objects.annotate(nb_tours=Count('tour')).order_by('-nb_tours')
+    return chauffeurs
+
+
+def rendements_utilisateurs(date_debut, date_fin):
+    rendements = Wallet_transaction.objects.filter(date__range=(date_debut, date_fin)).values('user_id').annotate(total_rendements=Sum('montant'))
+    utilisateurs_et_rendements = [(Utilisateur.objects.get(id=item['user_id']), item['total_rendements']) for item in rendements]
+    return utilisateurs_et_rendements
  

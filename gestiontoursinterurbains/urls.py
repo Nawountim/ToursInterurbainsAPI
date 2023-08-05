@@ -40,12 +40,14 @@ urlpatterns = [
     path('get_nondisponible_chauffeur', views.get_nondisponible_chauffeur),
     path('get_trajet', views.get_trajet),
     path('get_vehicule', views.get_vehicule),
+    path('get_vehicules_tours/<int:id>', views.get_vehicules_tours),
     path('get_vehicules_acceptes', views.get_vehicules_acceptes),
     path('get_vehicules_non_acceptes', views.get_vehicules_non_acceptes),
     path('get_disponible_vehicule', views.get_disponible_vehicule),
     path('get_one_vehicule/<int:id>', views.get_one_vehicule),
     path('get_vehicules_by_proprietaire/<int:proprietaire_id>', views.get_vehicules_by_proprietaire),
     path('get_tour', views.get_tour), 
+    path('get_all_tours', views.get_all_tours),
     path('get_tour_disponible', views.get_tour_disponible),
     path('get_one_tour/<int:id>', views.get_one_tour),
     path('get_tour_by_idtour/<str:id_tour>', views.get_tour_by_idtour),
@@ -62,6 +64,10 @@ urlpatterns = [
     path('get_reservations_by_voyageur/<int:voyageur_id>', views.get_reservations_by_voyageur),
     path('get_reservations_by_utilisateur', views.get_reservations_by_utilisateur),
     path('get_reservations_by_tour/tour/<int:tour_id>', views.get_reservations_by_tour),
+    
+    #Statistiques
+    path('trajets_plus_empruntes', views.trajets_plus_empruntes),
+
 
 
 
