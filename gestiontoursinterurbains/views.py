@@ -1376,27 +1376,25 @@ def send_tmoney_transaction(request):
     # Exemple d'URL de destination
     destination_url = "https://pay.suisco.net/api/push-ussd/tmoney/request"
     
-    # Effectuer une requête HTTP POST vers l'URL de destination
-    
     try:
-        
-        
         id_requete = data["idRequete"]
         numero_transaction = data["numeroClient"]
         montant = float(data["montant"])
         user_id = data["user_id"]
         
+        # Création de la transaction d'abord
         Momo_transaction.objects.create(
-        id_requete=id_requete,
-        numero_transaction=numero_transaction,
-        montant=montant,
-        operateur = "TMONEY",
-        type="DEBIT",
-        user_id=user_id,
+            id_requete=id_requete,
+            numero_transaction=numero_transaction,
+            montant=montant,
+            operateur="TMONEY",
+            type="DEBIT",
+            user_id=user_id,
         )
         
+        # Ensuite, effectuer la requête HTTP POST vers l'URL de destination
         response = requests.post(destination_url, json=data)
-        
+
         return JsonResponse({"status": "success", "message": "Données envoyées avec succès.","code": 200})
 
     except requests.exceptions.RequestException as e:
@@ -1418,10 +1416,11 @@ def send_flooz_transaction(request):
     data = json.loads(request.body)
     
     # Exemple d'URL de destination
-    destination_url = "https://pay.suisco.net/api/push-ussd/tmoney/request"
+    destination_url = "https://pay.suisco.net/api/push-ussd/flooz/request"
     
     # Effectuer une requête HTTP POST vers l'URL de destination
     try:
+        
         
         id_requete = data["idRequete"]
         numero_transaction = data["numeroClient"]
@@ -1436,7 +1435,9 @@ def send_flooz_transaction(request):
         type="DEBIT",
         user_id=user_id,
         )
+        
         response = requests.post(destination_url, json=data)
+        
         return JsonResponse({"status": "success", "message": "Données envoyées avec succès.","code": 200})
 
     except requests.exceptions.RequestException as e:
