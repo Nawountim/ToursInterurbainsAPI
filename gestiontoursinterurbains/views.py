@@ -8,6 +8,9 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from datetime import datetime
 import calendar
 import json
+import requests
+import time
+from django.views.decorators.http import require_GET
 from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, redirect, HttpResponse
 from django.contrib.auth import authenticate, login
@@ -1364,7 +1367,6 @@ def create_momo_transaction(request, id_reservation):
     # Si la transaction n'a pas été créée ou l'ID de réservation est invalide, renvoyer une réponse JSON avec un statut d'échec
     return JsonResponse({"success": False, "message": "Échec de la création de la momo transaction"})
 
-import requests
 
 @csrf_exempt
 def send_tmoney_transaction(request):
@@ -1377,7 +1379,7 @@ def send_tmoney_transaction(request):
     # Effectuer une requête HTTP POST vers l'URL de destination
     
     try:
-        response = requests.post(destination_url, json=data)
+        
         
         id_requete = data["idRequete"]
         numero_transaction = data["numeroClient"]
@@ -1392,13 +1394,15 @@ def send_tmoney_transaction(request):
         type="DEBIT",
         user_id=user_id,
         )
+        
+        response = requests.post(destination_url, json=data)
+        
         return JsonResponse({"status": "success", "message": "Données envoyées avec succès.","code": 200})
 
     except requests.exceptions.RequestException as e:
         return JsonResponse({"status": "error", "message": "Une erreur s'est produite lors de la communication avec le serveur : {}".format(e),"code": 400})
 
-from django.views.decorators.http import require_GET
-import time
+
 """ @csrf_exempt    
 def long_polling_view(request):
     while True:
@@ -1418,7 +1422,6 @@ def send_flooz_transaction(request):
     
     # Effectuer une requête HTTP POST vers l'URL de destination
     try:
-        response = requests.post(destination_url, json=data)
         
         id_requete = data["idRequete"]
         numero_transaction = data["numeroClient"]
@@ -1433,6 +1436,7 @@ def send_flooz_transaction(request):
         type="DEBIT",
         user_id=user_id,
         )
+        response = requests.post(destination_url, json=data)
         return JsonResponse({"status": "success", "message": "Données envoyées avec succès.","code": 200})
 
     except requests.exceptions.RequestException as e:
