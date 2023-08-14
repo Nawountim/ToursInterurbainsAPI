@@ -63,6 +63,10 @@ class Chauffeur(models.Model):
     Categorie_permis = models.CharField(max_length = 1, null= False)
     statut = models.BooleanField(default=True)
     
+    def nombre_utilisation(self):
+        return self.tour_set.count()
+
+    
     def __str__(self):
         return f"{self.numero_permis}"
     

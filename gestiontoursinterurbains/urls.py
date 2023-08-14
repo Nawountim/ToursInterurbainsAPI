@@ -65,9 +65,10 @@ urlpatterns = [
     path('get_reservations_by_utilisateur', views.get_reservations_by_utilisateur),
     path('get_reservations_by_tour/tour/<int:tour_id>', views.get_reservations_by_tour),
     
+    
     #Statistiques
     path('trajets_plus_empruntes', views.trajets_plus_empruntes),
-
+    path('chauffeurs_plus_sollicites', views.chauffeurs_plus_sollicites),
 
 
 
@@ -95,6 +96,7 @@ urlpatterns = [
     
     path('update_utilisateur/<int:id>', views.update_utilisateur), 
     path('accept_vehicule/<int:id>', views.accept_vehicule),
+    path('tour_effectuer/<int:id>', views.tour_effectuer),
     path('update_vehicule_availability/<int:id>', views.update_vehicule_availability), 
     path('update_chauffeur_availability/<int:id>', views.update_chauffeur_availability),
 

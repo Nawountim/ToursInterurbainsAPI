@@ -112,7 +112,7 @@ def get_one_utilisateur(request, id):
             """ Envoyer sous forme de Json: API """
         return JsonResponse(data) 
     
-    return JsonResponse({"message": "Aucun utilisateur ne correspond"})
+    return JsonResponse({"message": "Aucun utilisateur ne correspond"}) 
 #Modification d'un utilisateur
 @csrf_exempt
 def update_utilisateur(request, id):
@@ -374,7 +374,7 @@ def get_nondisponible_chauffeur(request):
 def update_chauffeur(request, id):
     chauffeur = get_object_or_404(Chauffeur, id=id)
     if request.method == 'POST':
-        serializer = chauffeurSerializer(chauffeur, data=request.data)
+        serializer = chauffeurSerializer(chauffeur, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.update(chauffeur, request.data)
             return JsonResponse({"info": "chauffeur modifié"})
@@ -462,7 +462,7 @@ def get_trajet(request):
 def update_trajet(request, id):
     trajet = get_object_or_404(Trajet, id=id)
     if request.method == 'POST':
-        serializer = trajetSerializer(trajet, data=request.data)
+        serializer = trajetSerializer(trajet, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.update(trajet, request.data)
             return JsonResponse({"info": "trajet modifié"})
@@ -698,7 +698,7 @@ def get_vehicules_tours(request, id):
 def update_vehicule(request, id):
     vehicule = get_object_or_404(Vehicule, id=id)
     if request.method == 'POST':
-        serializer = vehiculeSerializer(vehicule, data=request.data)
+        serializer = vehiculeSerializer(vehicule, data=request.data, partial=True)
         if serializer.is_valid():
             serializer.update(vehicule, request.data)
             return JsonResponse({"info": "vehicule modifié"})
@@ -851,6 +851,29 @@ def create_tour(request):
     return redirect("/get_tour")   
 
  
+@csrf_exempt
+def tour_effectuer(request, id):
+    t = get_object_or_404(Tour, id=id)
+
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        statut = data['statut']
+       
+        if statut is None:
+            return JsonResponse({"error": "Statut manquant"})
+
+        if statut == 'true':
+            t.statut = True
+        elif statut == 'false':
+            t.statut = False
+        else:
+            return JsonResponse({"error": "Statut invalide"})
+
+        t.save()
+
+        return JsonResponse({"info": "Tour effectué", "code": 200})
+
+    return JsonResponse({"error": "Modification du statut non autorisé", "code": 400})
 
             
 #Liste des Tours actifs
@@ -1197,7 +1220,7 @@ def get_wallet_transaction_by_id(request, transaction_id):
 def update_wallet_transaction(request, id):
     wallet_transaction = get_object_or_404(Wallet_transaction, id=id)
     if request.method == 'POST':
-        serializer = Wallet_transaction(wallet_transaction, data=request.data)
+        serializer = Wallet_transaction(wallet_transaction, data=request.body, partial=True)
         if serializer.is_valid():
             serializer.update(wallet_transaction, request.data)
             return JsonResponse({"info": "wallet transaction modifié"})
@@ -1416,7 +1439,7 @@ def get_momo_transactions_by_phone(request, phone_number):
 def update_momo_transaction(request, id):
     momo_transaction = get_object_or_404(Momo_transaction, id=id)
     if request.method == 'POST':
-        serializer = Momo_transaction(momo_transaction, data=request.data)
+        serializer = Momo_transaction(momo_transaction, data=request.body, partial=True)
         if serializer.is_valid():
             serializer.update(momo_transaction, request.data)
             return JsonResponse({"info": "momo transaction modifié"})
@@ -1671,7 +1694,7 @@ def get_reservations_by_utilisateur(request, utilisateur_id):
 def update_reservation(request, id):
     reservation = get_object_or_404(Reservation, id=id)
     if request.method == 'POST':
-        serializer = reservationSerializer(reservation, data=request.data)
+        serializer = reservationSerializer(reservation, data=request.body, partial=True)
         if serializer.is_valid():
             serializer.update(reservation, request.data)
             return JsonResponse({"info": "reservation modifiée"})
@@ -1832,14 +1855,40 @@ def trajets_plus_empruntes(request):
     return JsonResponse({'trajets': data}, safe=False)
 
 
+""" def trajets_plus_empruntes(request):
+    trajets = Trajet.objects.annotate(nb_emprunts=Count('tour'))
+    data = [{'libelle': trajet.libelle, 'nb_emprunts': trajet.nb_emprunts} for trajet in trajets]
+    return JsonResponse({'trajets': data}, safe=False)
+
+ """
+
 def vehicules_plus_utilises():
     vehicules = Vehicule.objects.annotate(nb_utilisations=Count('tour')).order_by('-nb_utilisations')
     return vehicules
 
 
-def chauffeurs_plus_sollicites():
-    chauffeurs = Chauffeur.objects.annotate(nb_tours=Count('tour')).order_by('-nb_tours')
-    return chauffeurs
+""" def chauffeurs_plus_sollicites(request):
+    chauffeurs = Chauffeur.objects.all()
+    data = [{'Nom': chauffeur.user_id.nom, 'nombre_utilisation': chauffeur.nombre_utilisation()} for chauffeur in chauffeurs]
+    return JsonResponse({'chauffeurs': data}, safe=False)
+ """
+def chauffeurs_plus_sollicites(request):
+    # Obtenir les chauffeurs et le nombre d'utilisations
+    chauffeurs = Chauffeur.objects.annotate(
+        nombre_utilisation=Count('tour')
+    ).order_by('-nombre_utilisation')[:3]
+
+    # Créer une liste de dictionnaires contenant les informations des chauffeurs
+    chauffeurs_list = []
+    for chauffeur in chauffeurs:
+        chauffeur_info = {
+            'Nom': chauffeur.user_id.nom,
+            'nombre_utilisation': chauffeur.nombre_utilisation,
+        }
+        chauffeurs_list.append(chauffeur_info)
+
+    # Retourner les informations des chauffeurs au format JSON
+    return JsonResponse({'chauffeurs': chauffeurs_list}, safe=False)
 
 
 def rendements_utilisateurs(date_debut, date_fin):
