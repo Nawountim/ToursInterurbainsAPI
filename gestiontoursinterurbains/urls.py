@@ -90,7 +90,11 @@ urlpatterns = [
     path('create_reservation', views.create_reservation),
     path('create_wallet_transaction', views.create_wallet_transaction),
     path('create_momo_transaction/<str:id_reservation>', views.create_momo_transaction),
-
+    
+    
+#POST-Transactio,    
+    path('send_tmoney_transaction', views.send_tmoney_transaction), 
+    path('send_flooz_transaction', views.send_flooz_transaction), 
 
 #Update    
     

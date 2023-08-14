@@ -293,6 +293,7 @@ def get_chauffeur(request):
             "id": chauffeur.id,
             "nom": chauffeur.user_id.nom,
             "prenom": chauffeur.user_id.prenom,
+            "contact": chauffeur.user_id.contact,
             "numero_permis": chauffeur.numero_permis,
             "categorie": chauffeur.Categorie_permis,
             "statut": chauffeur.statut,
@@ -1363,7 +1364,82 @@ def create_momo_transaction(request, id_reservation):
     # Si la transaction n'a pas été créée ou l'ID de réservation est invalide, renvoyer une réponse JSON avec un statut d'échec
     return JsonResponse({"success": False, "message": "Échec de la création de la momo transaction"})
 
-            
+import requests
+
+@csrf_exempt
+def send_tmoney_transaction(request):
+    # Charger les données JSON à partir du corps de la requête
+    data = json.loads(request.body)
+    
+    # Exemple d'URL de destination
+    destination_url = "https://pay.suisco.net/api/push-ussd/tmoney/request"
+    
+    # Effectuer une requête HTTP POST vers l'URL de destination
+    
+    try:
+        response = requests.post(destination_url, json=data)
+        
+        id_requete = data["idRequete"]
+        numero_transaction = data["numeroClient"]
+        montant = float(data["montant"])
+        user_id = data["user_id"]
+        
+        Momo_transaction.objects.create(
+        id_requete=id_requete,
+        numero_transaction=numero_transaction,
+        montant=montant,
+        operateur = "TMONEY",
+        type="DEBIT",
+        user_id=user_id,
+        )
+        return JsonResponse({"status": "success", "message": "Données envoyées avec succès.","code": 200})
+
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({"status": "error", "message": "Une erreur s'est produite lors de la communication avec le serveur : {}".format(e),"code": 400})
+
+from django.views.decorators.http import require_GET
+import time
+""" @csrf_exempt    
+def long_polling_view(request):
+    while True:
+        if has_updates():
+            updates = get_updates()
+            return JsonResponse(updates)
+        time.sleep(2) """
+        
+
+@csrf_exempt
+def send_flooz_transaction(request):
+    # Charger les données JSON à partir du corps de la requête
+    data = json.loads(request.body)
+    
+    # Exemple d'URL de destination
+    destination_url = "https://pay.suisco.net/api/push-ussd/tmoney/request"
+    
+    # Effectuer une requête HTTP POST vers l'URL de destination
+    try:
+        response = requests.post(destination_url, json=data)
+        
+        id_requete = data["idRequete"]
+        numero_transaction = data["numeroClient"]
+        montant = float(data["montant"])
+        user_id = data["user_id"]
+        
+        Momo_transaction.objects.create(
+        id_requete=id_requete,
+        numero_transaction=numero_transaction,
+        montant=montant,
+        operateur = "FLOOZ",
+        type="DEBIT",
+        user_id=user_id,
+        )
+        return JsonResponse({"status": "success", "message": "Données envoyées avec succès.","code": 200})
+
+    except requests.exceptions.RequestException as e:
+        return JsonResponse({"status": "error", "message": "Une erreur s'est produite lors de la communication avec le serveur : {}".format(e),"code": 400})
+
+    
+                        
 #Liste des Momo_transactions
 def get_momo_transaction(request):
     data = { "momo_transactions": [] }
@@ -1872,6 +1948,7 @@ def vehicules_plus_utilises():
     data = [{'Nom': chauffeur.user_id.nom, 'nombre_utilisation': chauffeur.nombre_utilisation()} for chauffeur in chauffeurs]
     return JsonResponse({'chauffeurs': data}, safe=False)
  """
+ 
 def chauffeurs_plus_sollicites(request):
     # Obtenir les chauffeurs et le nombre d'utilisations
     chauffeurs = Chauffeur.objects.annotate(

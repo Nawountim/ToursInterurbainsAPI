@@ -50,7 +50,7 @@ class reservationSerializer(serializers.ModelSerializer):
 class momoTransactionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Momo_transaction
-        fields = ['id_requete','statuscode','message','numero_transaction', 'montant', 'reference_operateur_id', 'operateur']                                       
+        fields = ['id_requete','message','numero_transaction', 'montant', 'reference_operateur_id']                                       
         
         
 class walletTransactionSerializer(serializers.ModelSerializer):
