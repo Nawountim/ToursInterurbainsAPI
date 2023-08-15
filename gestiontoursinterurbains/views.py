@@ -1422,9 +1422,9 @@ def send_flooz_transaction(request):
     try:
         
         
-        id_requete = data["idRequete"]
-        numero_transaction = data["numeroClient"]
-        montant = float(data["montant"])
+        id_requete = data["transactionCode"]
+        numero_transaction = data["destMobileNumber"]
+        montant = float(data["amount"])
         user_id = data["user_id"]
         
         Momo_transaction.objects.create(
