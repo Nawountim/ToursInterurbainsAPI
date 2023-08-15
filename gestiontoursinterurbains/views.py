@@ -1383,7 +1383,7 @@ def send_tmoney_transaction(request):
         user_id = data["user_id"]
         
         # Création de la transaction d'abord
-        Momo_transaction.objects.create(
+        transaction = Momo_transaction.objects.create(
             id_requete=id_requete,
             numero_transaction=numero_transaction,
             montant=montant,
@@ -1394,12 +1394,31 @@ def send_tmoney_transaction(request):
         
         # Ensuite, effectuer la requête HTTP POST vers l'URL de destination
         response = requests.post(destination_url, json=data)
+        response_json = response.json()
+    
+        code = response_json["code"]
+        statut_requete = response_json.get("statutRequete")
+        ref_operateur_id = response_json.get("refTmoney")
+        
+        transaction.statuscode = code
+        transaction.message = statut_requete
+        transaction.reference_operateur_id = ref_operateur_id
+        transaction.save()
+        
+        if code == "2002":
+            try:
+                user = Utilisateur.objects.get(id=user_id)
+                user.portefeuille += montant
+                user.save()
+                
+            except Utilisateur.DoesNotExist:
+                # Gérer le cas où l'utilisateur n'est pas trouvé
+                pass
 
-        return JsonResponse({"status": "success", "message": "Données envoyées avec succès.","code": 200})
+        return JsonResponse({"status": "success", "code": code, "message": statut_requete})
 
     except requests.exceptions.RequestException as e:
-        return JsonResponse({"status": "error", "message": "Une erreur s'est produite lors de la communication avec le serveur : {}".format(e),"code": 400})
-
+        return JsonResponse({"status": "error", "message": "Une erreur s'est produite lors de la communication avec le serveur : {}".format(e), "code": 400})
 
 """ @csrf_exempt    
 def long_polling_view(request):
@@ -1418,32 +1437,51 @@ def send_flooz_transaction(request):
     # Exemple d'URL de destination
     destination_url = "https://pay.suisco.net/api/push-ussd/flooz/request"
     
-    # Effectuer une requête HTTP POST vers l'URL de destination
     try:
-        
-        
         id_requete = data["transactionCode"]
         numero_transaction = data["destMobileNumber"]
         montant = float(data["amount"])
         user_id = data["user_id"]
         
-        Momo_transaction.objects.create(
-        id_requete=id_requete,
-        numero_transaction=numero_transaction,
-        montant=montant,
-        operateur = "FLOOZ",
-        type="DEBIT",
-        user_id=user_id,
+        # Création de la transaction d'abord
+        transaction = Momo_transaction.objects.create(
+            id_requete=id_requete,
+            numero_transaction=numero_transaction,
+            montant=montant,
+            operateur="FLOOZ",
+            type="DEBIT",
+            user_id=user_id,
         )
         
+        # Ensuite, effectuer la requête HTTP POST vers l'URL de destination
         response = requests.post(destination_url, json=data)
+        response_json = response.json()
         
-        return JsonResponse({"status": "success", "message": "Données envoyées avec succès.","code": 200})
+        status = response_json["status"]
+        status_message = response_json.get("statusMessage")
+        ref_operateur_id = response_json.get("floozRefid")
+        
+        transaction.statuscode = status
+        transaction.message = status_message
+        transaction.reference_operateur_id = ref_operateur_id
+        transaction.save()
+
+        
+        if status == "0":
+            try:
+                user = Utilisateur.objects.get(id=user_id)
+                user.portefeuille += montant
+                user.save()
+                
+            except Utilisateur.DoesNotExist:
+                # Gérer le cas où l'utilisateur n'est pas trouvé
+                pass
+        
+        return JsonResponse({"status": status, "message": status_message})
 
     except requests.exceptions.RequestException as e:
-        return JsonResponse({"status": "error", "message": "Une erreur s'est produite lors de la communication avec le serveur : {}".format(e),"code": 400})
+        return JsonResponse({"status": "error", "message": "Une erreur s'est produite lors de la communication avec le serveur : {}".format(e), "code": 400})
 
-    
                         
 #Liste des Momo_transactions
 def get_momo_transaction(request):
