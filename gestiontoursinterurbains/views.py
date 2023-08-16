@@ -1392,6 +1392,10 @@ def send_tmoney_transaction(request):
             user_id=user_id,
         )
         
+        # Supprimer le champ user_id du dictionnaire data avant d'envoyer la requête
+        if "user_id" in data:
+            del data["user_id"]
+        
         # Ensuite, effectuer la requête HTTP POST vers l'URL de destination
         response = requests.post(destination_url, json=data)
         response_json = response.json()
@@ -1434,6 +1438,9 @@ def send_flooz_transaction(request):
     # Charger les données JSON à partir du corps de la requête
     data = json.loads(request.body)
     
+    # Supprimer le champ user_id du dictionnaire data s'il est présent
+    
+    
     # Exemple d'URL de destination
     destination_url = "https://pay.suisco.net/api/push-ussd/flooz/request"
     
@@ -1441,7 +1448,7 @@ def send_flooz_transaction(request):
         id_requete = data["transactionCode"]
         numero_transaction = data["destMobileNumber"]
         montant = float(data["amount"])
-        user_id = data["user_id"]
+        user_id = data.get("user_id", None)  # Récupérer user_id s'il est présent
         
         # Création de la transaction d'abord
         transaction = Momo_transaction.objects.create(
@@ -1452,6 +1459,10 @@ def send_flooz_transaction(request):
             type="DEBIT",
             user_id=user_id,
         )
+        
+        # Supprimer le champ user_id du dictionnaire data avant d'envoyer la requête
+        if "user_id" in data:
+            del data["user_id"]
         
         # Ensuite, effectuer la requête HTTP POST vers l'URL de destination
         response = requests.post(destination_url, json=data)
@@ -1465,9 +1476,9 @@ def send_flooz_transaction(request):
         transaction.message = status_message
         transaction.reference_operateur_id = ref_operateur_id
         transaction.save()
-
         
         if status == "0":
+            # Gérer le succès de la transaction, par exemple, mise à jour du portefeuille utilisateur
             try:
                 user = Utilisateur.objects.get(id=user_id)
                 user.portefeuille += montant
