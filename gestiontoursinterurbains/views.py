@@ -1397,6 +1397,7 @@ def send_tmoney_transaction(request):
             del data["user_id"]
         
         # Ensuite, effectuer la requête HTTP POST vers l'URL de destination
+        print(data)
         response = requests.post(destination_url, json=data)
         response_json = response.json()
     
@@ -1465,6 +1466,7 @@ def send_flooz_transaction(request):
             del data["user_id"]
         
         # Ensuite, effectuer la requête HTTP POST vers l'URL de destination
+        print(data)
         response = requests.post(destination_url, json=data)
         response_json = response.json()
         
