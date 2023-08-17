@@ -2029,3 +2029,10 @@ def rendements_utilisateurs(date_debut, date_fin):
     utilisateurs_et_rendements = [(Utilisateur.objects.get(id=item['user_id']), item['total_rendements']) for item in rendements]
     return utilisateurs_et_rendements
  
+ 
+ 
+def getTransactionResponse(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+    
+        return JsonResponse({"data": data, "code": 200})

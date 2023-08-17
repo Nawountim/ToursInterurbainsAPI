@@ -65,6 +65,8 @@ urlpatterns = [
     path('get_reservations_by_utilisateur', views.get_reservations_by_utilisateur),
     path('get_reservations_by_tour/tour/<int:tour_id>', views.get_reservations_by_tour),
     
+    path('getTransactionResponse', views.getTransactionResponse),
+
     
     #Statistiques
     path('trajets_plus_empruntes', views.trajets_plus_empruntes),
