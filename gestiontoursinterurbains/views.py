@@ -2030,14 +2030,14 @@ def rendements_utilisateurs(date_debut, date_fin):
     return utilisateurs_et_rendements
  
  
- 
+@csrf_exempt
 def getPaygatTransactionResponse(request):
     if request.method == "POST":
         data = json.loads(request.body)
     
         return JsonResponse({"data": data, "code": 200})
     
-
+@csrf_exempt
 def sendPaygatTransaction(request):
     if request.method == "POST":
         data = json.loads(request.body)
@@ -2058,3 +2058,9 @@ def sendPaygatTransaction(request):
 
     return JsonResponse({"status": "error", "message": "Méthode non autorisée."})
     
+@csrf_exempt
+def sendPaygatTransactionTest(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        
+       
