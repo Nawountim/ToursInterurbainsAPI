@@ -2050,10 +2050,9 @@ def sendPaygatTransaction(request):
         try:
             response = requests.post(external_url, json=data)
             
-            if response.status_code == 200:
-                return JsonResponse({"response": response})
-            else:
-                return JsonResponse({"status": "error", "message": "Échec de l'envoi des données à l'URL externe."})
+            
+            return JsonResponse({"response": response})
+        
         except requests.exceptions.RequestException as e:
             return JsonResponse({"status": "error", "message": "Une erreur s'est produite lors de la communication avec le serveur externe : {}".format(e)})
 
