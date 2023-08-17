@@ -65,7 +65,9 @@ urlpatterns = [
     path('get_reservations_by_utilisateur', views.get_reservations_by_utilisateur),
     path('get_reservations_by_tour/tour/<int:tour_id>', views.get_reservations_by_tour),
     
-    path('getTransactionResponse', views.getTransactionResponse),
+    
+    path('getPaygatTransactionResponse', views.getPaygatTransactionResponse),
+    path('sendPaygatTransaction', views.sendPaygatTransaction), 
 
     
     #Statistiques

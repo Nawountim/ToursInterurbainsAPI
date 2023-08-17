@@ -2031,8 +2031,31 @@ def rendements_utilisateurs(date_debut, date_fin):
  
  
  
-def getTransactionResponse(request):
+def getPaygatTransactionResponse(request):
     if request.method == "POST":
         data = json.loads(request.body)
     
         return JsonResponse({"data": data, "code": 200})
+    
+
+def sendPaygatTransaction(request):
+    if request.method == "POST":
+        data = json.loads(request.body)
+        
+        # Les données à envoyer à l'URL externe
+        
+        
+        external_url = "https://paygateglobal.com/api/v1/pay"  # Remplacez par l'URL externe cible
+        
+        try:
+            response = requests.post(external_url, json=data)
+            
+            if response.status_code == 200:
+                return JsonResponse({"response": response})
+            else:
+                return JsonResponse({"status": "error", "message": "Échec de l'envoi des données à l'URL externe."})
+        except requests.exceptions.RequestException as e:
+            return JsonResponse({"status": "error", "message": "Une erreur s'est produite lors de la communication avec le serveur externe : {}".format(e)})
+
+    return JsonResponse({"status": "error", "message": "Méthode non autorisée."})
+    
