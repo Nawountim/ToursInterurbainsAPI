@@ -27,6 +27,7 @@ from django.db import transaction
 from django.db.models import F
 from django.core.mail import send_mail
 from django.db.models import Count, Sum
+from datetime import datetime, date
 from django.conf import settings
 
 
@@ -2029,6 +2030,30 @@ def rendements_utilisateurs(date_debut, date_fin):
     utilisateurs_et_rendements = [(Utilisateur.objects.get(id=item['user_id']), item['total_rendements']) for item in rendements]
     return utilisateurs_et_rendements
  
+ 
+ 
+
+def calculate_total_transactions(request):
+    # Obtenez la date actuelle pour les transactions du jour
+    today = date.today()
+
+    # Calculez le montant total des transactions Momo pour la journée
+    momo_total = Momo_transaction.objects.filter(date__date=today).aggregate(Sum('montant'))['montant__sum'] or 0.0
+
+    # Calculez le montant total des transactions Wallet pour la journée
+    wallet_total = Wallet_transaction.objects.filter(date__date=today).aggregate(Sum('montant'))['montant__sum'] or 0.0
+
+    # Calculez le montant total des deux types de transactions
+    total_amount = momo_total + wallet_total
+
+    response_data = {
+        'total_amount': total_amount
+    }
+
+    return JsonResponse(response_data)
+
+   
+
  
 @csrf_exempt
 def getPaygatTransactionResponse(request):
