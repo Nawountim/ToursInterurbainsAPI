@@ -6,6 +6,7 @@ import json
 from rest_framework import generics
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from datetime import datetime
+from collections import defaultdict
 import calendar
 import json
 import requests
@@ -1154,7 +1155,7 @@ def create_wallet_transaction(request):
 #Liste des Wallet_transaction
 def get_wallet_transaction(request):
     data = { "wallet_transactions": [] }
-    wallet_transactions = Wallet_transaction.objects.all()
+    wallet_transactions = Wallet_transaction.objects.all().order_by('-id')
     for wallet_transaction in wallet_transactions:
         nom_payant = wallet_transaction.user_id.nom
         prenom_payant = wallet_transaction.user_id.prenom
@@ -2024,14 +2025,151 @@ def chauffeurs_plus_sollicites(request):
     # Retourner les informations des chauffeurs au format JSON
     return JsonResponse({'chauffeurs': chauffeurs_list}, safe=False)
 
+@csrf_exempt
+def rendements_utilisateurs(request):
+    rendements = []  # Initialisez une liste vide pour stocker les données finales
 
-def rendements_utilisateurs(date_debut, date_fin):
-    rendements = Wallet_transaction.objects.filter(date__range=(date_debut, date_fin)).values('user_id').annotate(total_rendements=Sum('montant'))
-    utilisateurs_et_rendements = [(Utilisateur.objects.get(id=item['user_id']), item['total_rendements']) for item in rendements]
-    return utilisateurs_et_rendements
- 
- 
- 
+    if request.method == 'POST':
+        data = json.loads(request.body)
+        date_debut = data['date_debut']
+        date_fin = data['date_fin']
+        try:
+            # Récupérez les rendements à partir de Wallet_transaction
+            wallet_rendements = Wallet_transaction.objects.filter(date__range=(date_debut, date_fin)).values('user_id').annotate(total_rendements=Sum('montant'))
+            
+            # Créez un dictionnaire pour stocker les rendements cumulés par user_id
+            rendements_cumules = defaultdict(float)
+
+            # Pour chaque rendement, récupérez l'utilisateur correspondant et ajoutez les rendements cumulés
+            for item in wallet_rendements:
+                user_id = item['user_id']
+                utilisateur = Utilisateur.objects.get(id=user_id)
+                rendement = item['total_rendements']
+                rendements_cumules[user_id] += rendement
+
+            # Récupérez également les données de Momo_transaction
+            momo_data = Momo_transaction.objects.filter(date__range=(date_debut, date_fin))  # Ajoutez la logique appropriée pour récupérer les données de Momo_transaction
+
+            # Ajoutez les données de Momo_transaction aux rendements cumulés
+            for momo_item in momo_data:
+                utilisateur = Utilisateur.objects.get(id=momo_item.user_id)
+                rendement = momo_item.montant
+                rendements_cumules[momo_item.user_id] += rendement
+
+            # Transformez le dictionnaire de rendements cumulés en une liste
+            for user_id, rendement_cumule in rendements_cumules.items():
+                utilisateur = Utilisateur.objects.get(id=user_id)
+                rendements.append({
+                    'user_id': utilisateur.id,
+                    'nom': utilisateur.nom,
+                    'prenom': utilisateur.prenom,
+                    'voyageur': utilisateur.is_voyageur,
+                    'fournisseur': utilisateur.is_fournisseur,
+                    'chauffeur': utilisateur.is_chauffeur,
+                    'rendement_cumule': rendement_cumule
+                })
+
+            return JsonResponse({'rendements': rendements}, safe=False)
+        except Exception as e:
+            # Gérer l'exception, par exemple, imprimer un message d'erreur
+            print(f"Erreur : {str(e)}")
+    
+    return JsonResponse({'rendements': rendements}, safe=False)
+
+
+def rendements_utilisateurs_jour(request):
+    rendements = []  # Initialisez une liste vide pour stocker les données finales
+
+    # Utilisez la date actuelle comme date de début et de fin
+    date_actuelle = timezone.now().date()
+
+    try:
+        # Récupérez les rendements à partir de Wallet_transaction
+        wallet_rendements = Wallet_transaction.objects.filter(date__date=date_actuelle).values('user_id').annotate(total_rendements=Sum('montant'))
+        
+        # Créez un dictionnaire pour stocker les rendements cumulés par user_id
+        rendements_cumules = defaultdict(float)
+
+        # Pour chaque rendement, récupérez l'utilisateur correspondant et ajoutez les rendements cumulés
+        for item in wallet_rendements:
+            user_id = item['user_id']
+            utilisateur = Utilisateur.objects.get(id=user_id)
+            rendement = item['total_rendements']
+            rendements_cumules[user_id] += rendement
+
+        # Récupérez également les données de Momo_transaction
+        momo_data = Momo_transaction.objects.filter(date__date=date_actuelle)  # Ajoutez la logique appropriée pour récupérer les données de Momo_transaction
+
+        # Ajoutez les données de Momo_transaction aux rendements cumulés
+        for momo_item in momo_data:
+            utilisateur = Utilisateur.objects.get(id=momo_item.user_id)
+            rendement = momo_item.montant
+            rendements_cumules[momo_item.user_id] += rendement
+
+        # Transformez le dictionnaire de rendements cumulés en une liste
+        for user_id, rendement_cumule in rendements_cumules.items():
+            utilisateur = Utilisateur.objects.get(id=user_id)
+            rendements.append({
+                'user_id': utilisateur.id,
+                'nom': utilisateur.nom,
+                'prenom': utilisateur.prenom,
+                'voyageur': utilisateur.is_voyageur,
+                'fournisseur': utilisateur.is_fournisseur,
+                'chauffeur': utilisateur.is_chauffeur,
+                'rendement_cumule': rendement_cumule
+            })
+
+        return JsonResponse({'rendements': rendements}, safe=False)
+    except Exception as e:
+        # Gérer l'exception, par exemple, imprimer un message d'erreur
+        print(f"Erreur : {str(e)}")
+
+    return JsonResponse({'rendements': rendements}, safe=False)
+
+
+def chiffre_affaires_par_mois(request):
+    try:
+        # Obtenez l'année en cours
+        annee_courante = date.today().year
+
+        # Obtenez les noms des mois
+        mois_labels = list(calendar.month_name)[1:]
+
+        # Initialisez un dictionnaire pour stocker les chiffres d'affaires par mois
+        chiffre_affaires_par_mois = {mois: 0 for mois in mois_labels}
+
+        # Obtenez le chiffre d'affaires à partir de Wallet_transaction pour l'année en cours
+        chiffre_affaires_wallet = (
+            Wallet_transaction.objects
+            .filter(date__year=annee_courante)  # Filtrez les transactions Wallet pour l'année en cours
+            .values('date__month')  # Groupement par mois
+            .annotate(chiffre_affaires=Sum('montant'))  # Calcul du chiffre d'affaires total pour chaque mois
+        )
+
+        # Obtenez le chiffre d'affaires à partir de Momo_transaction pour l'année en cours
+        chiffre_affaires_momo = (
+            Momo_transaction.objects
+            .filter(date__year=annee_courante)  # Filtrez les transactions Momo pour l'année en cours
+            .values('date__month')  # Groupement par mois
+            .annotate(chiffre_affaires=Sum('montant'))  # Calcul du chiffre d'affaires total pour chaque mois
+        )
+
+        # Mettez à jour le dictionnaire avec les chiffres d'affaires
+        for wallet_item in chiffre_affaires_wallet:
+            mois = mois_labels[wallet_item['date__month'] - 1]  # L'indice de mois commence à 1
+            chiffre_affaires_par_mois[mois] += wallet_item['chiffre_affaires']
+
+        for momo_item in chiffre_affaires_momo:
+            mois = mois_labels[momo_item['date__month'] - 1]
+            chiffre_affaires_par_mois[mois] += momo_item['chiffre_affaires']
+
+        # Convertissez le dictionnaire en une liste de tuples (mois, chiffre_affaires)
+        chiffre_affaires_data = [{'mois': mois, 'chiffre_affaires': ca} for mois, ca in chiffre_affaires_par_mois.items()]
+
+        return JsonResponse({'chiffre_affaires_par_mois': chiffre_affaires_data}, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
+    
 
 def calculate_total_transactions(request):
     # Obtenez la date actuelle pour les transactions du jour

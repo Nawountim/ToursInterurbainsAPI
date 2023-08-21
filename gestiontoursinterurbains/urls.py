@@ -75,6 +75,14 @@ urlpatterns = [
     path('trajets_plus_empruntes', views.trajets_plus_empruntes),
     path('chauffeurs_plus_sollicites', views.chauffeurs_plus_sollicites),
     path('calculate_total_transactions', views.calculate_total_transactions),
+    path('rendements_utilisateurs', views.rendements_utilisateurs),
+    path('rendements_utilisateurs_jour', views.rendements_utilisateurs_jour),
+    path('chiffre_affaires_par_mois', views.chiffre_affaires_par_mois),
+
+    
+
+
+    
 
 
 
