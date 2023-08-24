@@ -39,6 +39,7 @@ urlpatterns = [
     path('get_disponible_chauffeur', views.get_disponible_chauffeur),
     path('get_nondisponible_chauffeur', views.get_nondisponible_chauffeur),
     path('get_trajet', views.get_trajet),
+    path('get_one_trajet/<int:id>', views.get_one_trajet),
     path('get_vehicule', views.get_vehicule),
     path('get_vehicules_tours/<int:id>', views.get_vehicules_tours),
     path('get_vehicules_acceptes', views.get_vehicules_acceptes),
@@ -69,6 +70,8 @@ urlpatterns = [
     
     path('getPaygatTransactionResponse', views.getPaygatTransactionResponse),
     path('sendPaygatTransaction', views.sendPaygatTransaction), 
+    path('getFedapayTransactionResponse', views.getFedapayTransactionResponse), 
+
 
     
     #Statistiques
@@ -112,6 +115,8 @@ urlpatterns = [
 
 #Update    
     
+    path('update_tour/<int:id>', views.update_tour), 
+    path('update_trajet/<int:id>', views.update_trajet), 
     path('update_utilisateur/<int:id>', views.update_utilisateur), 
     path('accept_vehicule/<int:id>', views.accept_vehicule),
     path('tour_effectuer/<int:id>', views.tour_effectuer),
@@ -127,6 +132,7 @@ urlpatterns = [
    
     path('delete_utilisateur/<int:id>', views.delete_utilisateur), 
     path('delete_vehicule/<int:id>', views.delete_vehicule), 
+    path('delete_tour/<int:id>', views.delete_tour), 
     path('delete_trajet/<int:id>', views.delete_trajet), 
     path('delete_chauffeur/<int:id>', views.delete_chauffeur), 
     path('delete_reservation/<int:id>', views.delete_reservation), 

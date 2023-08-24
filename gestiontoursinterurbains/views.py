@@ -30,6 +30,7 @@ from django.core.mail import send_mail
 from django.db.models import Count, Sum
 from datetime import datetime, date
 from django.conf import settings
+from django.core.mail import send_mail
 
 
 
@@ -462,17 +463,36 @@ def get_trajet(request):
         """ Envoyer sous forme de Json: API """
     return JsonResponse(data)            
 
+#Avoir un trajet
+def get_one_trajet(request, id):
+    try:
+        trajet = Trajet.objects.get(id=id)
+        data = {
+            "id": trajet.id,
+            "libelle": trajet.libelle,
+            "distance": trajet.distance,
+            "start_longitude": trajet.start_longitude,
+            "start_latitude": trajet.start_latitude,
+            "end_longitude": trajet.end_longitude,
+            "end_latitude": trajet.end_latitude,
+        }
+        return JsonResponse(data)
+    except Tour.DoesNotExist:
+        return JsonResponse({"message": "trajet non trouvé"})
+
+
 
 #Modification d'un trajet
 @csrf_exempt
 def update_trajet(request, id):
     trajet = get_object_or_404(Trajet, id=id)
-    if request.method == 'POST':
-        serializer = trajetSerializer(trajet, data=request.data, partial=True)
+    if request.method == 'PATCH':
+        data = json.loads(request.body)
+        serializer = trajetSerializer(trajet, data=data, partial=True)
         if serializer.is_valid():
-            serializer.update(trajet, request.data)
-            return JsonResponse({"info": "trajet modifié"})
-        return JsonResponse({"error": serializer.errors})
+            serializer.save()
+            return JsonResponse({"message": "trajet modifié", "code":200})
+        return JsonResponse({"message": "trajet non modifié", "code":400})
             
 
 
@@ -775,6 +795,7 @@ def delete_vehicule(request, id):
 
     # Si le véhicule n'est lié à aucun tour, vous pouvez le supprimer en toute sécurité
     vehicule.delete()
+    
 
     return HttpResponse({'message':'Véhicule supprimé avec succès.','status':200})  
     
@@ -1078,12 +1099,13 @@ def get_tour_by_vehicule(request, vehicule_id):
 @csrf_exempt
 def update_tour(request, id):
     tour = get_object_or_404(Tour, id=id)
-    if request.method == 'POST':
-        serializer = tourSerializer(tour, data=request.data)
+    if request.method == 'PATCH':
+        data = json.loads(request.body)
+        serializer = tourSerializer(tour, data=data,  partial=True)
         if serializer.is_valid():
-            serializer.update(tour, request.data)
-            return JsonResponse({"info": "tour modifié"})
-        return JsonResponse({"message": serializer.errors})
+            serializer.save()
+            return JsonResponse({"message": "tour modifié", "code":200})
+        return JsonResponse({"message": "tour non  modifié", "code":400})
             
 
 
@@ -2195,8 +2217,6 @@ def calculate_total_transactions(request):
     return JsonResponse(response_data)
 
    
-
- 
 @csrf_exempt
 def getPaygatTransactionResponse(request):
     if request.method == "POST":
@@ -2204,6 +2224,16 @@ def getPaygatTransactionResponse(request):
     
         return JsonResponse({"data": data, "code": 200})
     
+
+@csrf_exempt
+def getFedapayTransactionResponse(request):
+
+        data = json.loads(request.body)
+        print(data)
+        Momo_transaction.save(data)
+        return JsonResponse({"data": data, "code": 200})
+    
+        
 @csrf_exempt
 def sendPaygatTransaction(request):
     if request.method == "POST":
