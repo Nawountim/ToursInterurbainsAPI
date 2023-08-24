@@ -2227,10 +2227,10 @@ def getPaygatTransactionResponse(request):
 
 @csrf_exempt
 def getFedapayTransactionResponse(request):
-
-        data = json.loads(request.body)
-        print(data)
-        Momo_transaction.save(data)
+        if request.method == "POST":
+            data = json.loads(request.body)
+            print(data)
+            Momo_transaction.save(data)
         return JsonResponse({"data": data, "code": 200})
     
         
