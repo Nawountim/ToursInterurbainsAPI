@@ -2224,33 +2224,34 @@ def getPaygatTransactionResponse(request):
     
         return JsonResponse({"data": data, "code": 200})
     
-
+from django.contrib.sessions.models import Session
 @csrf_exempt
 def getFedapayTransactionResponse(request):
-    data = json.loads(request.body)
     if request.method == "POST":
         try:
-            get_result = perform_get_action(data)
+            data = json.loads(request.body)
+            
+            # Stockez les données dans la session de l'utilisateur
+            request.session['transaction_data'] = data
+            
             print(data)
-            return JsonResponse({"message": "Données reçues avec succès", "get_result": get_result}, status=200)
+            return JsonResponse({"message": "Données reçues avec succès"}, status=200)
         except json.JSONDecodeError as e:
             return JsonResponse({"error": "Erreur de décodage JSON"}, status=400)
-    elif request.method == "GET":
-        # Logique pour gérer la requête GET ici
-        # Vous pouvez accéder aux paramètres GET, effectuer des opérations et renvoyer la réponse appropriée
-        get_result = perform_get_action(data)  # Appel de l'action GET sans données POST
-        return JsonResponse({"message": "Requête GET réussie", "get_result": get_result}, status=200)
     else:
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
-    
-    
-@csrf_exempt
-def perform_get_action(data):
-    # Vous pouvez implémenter ici la logique de l'action GET basée sur les données POST
-    # Par exemple, utilisez les données POST pour récupérer des données spécifiques
-    # ou effectuer une action particulière et renvoyer le résultat
-    return  JsonResponse({"message": "Données reçues avec succès", "get_result": data}, status=200) 
 
+@csrf_exempt
+def getFedapayTransactionData(request):
+    if request.method == "GET":
+        # Récupérez les données de la session de l'utilisateur
+        transaction_data = request.session.get('transaction_data', None)
+        
+        if transaction_data is not None:
+            return JsonResponse({"data": transaction_data}, status=200)
+        else:
+            return JsonResponse({"error": "Aucune donnée disponible"}, status=404)
+        
 @csrf_exempt
 def sendPaygatTransaction(request):
     if request.method == "POST":

@@ -71,7 +71,7 @@ urlpatterns = [
     path('getPaygatTransactionResponse', views.getPaygatTransactionResponse),
     path('sendPaygatTransaction', views.sendPaygatTransaction), 
     path('getFedapayTransactionResponse', views.getFedapayTransactionResponse), 
-    path('perform_get_action', views.perform_get_action), 
+    path('getFedapayTransactionData', views.getFedapayTransactionData), 
 
 
 
