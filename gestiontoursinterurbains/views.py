@@ -2227,9 +2227,9 @@ def getPaygatTransactionResponse(request):
 
 @csrf_exempt
 def getFedapayTransactionResponse(request):
+    data = json.loads(request.body)
     if request.method == "POST":
         try:
-            data = json.loads(request.body)
             get_result = perform_get_action(data)
             print(data)
             return JsonResponse({"message": "Données reçues avec succès", "get_result": get_result}, status=200)
@@ -2238,16 +2238,19 @@ def getFedapayTransactionResponse(request):
     elif request.method == "GET":
         # Logique pour gérer la requête GET ici
         # Vous pouvez accéder aux paramètres GET, effectuer des opérations et renvoyer la réponse appropriée
-        get_result = perform_get_action(None)  # Appel de l'action GET sans données POST
+        get_result = perform_get_action(data)  # Appel de l'action GET sans données POST
         return JsonResponse({"message": "Requête GET réussie", "get_result": get_result}, status=200)
     else:
         return JsonResponse({"error": "Méthode non autorisée"}, status=405)
-
+    
+    
+@csrf_exempt
 def perform_get_action(data):
     # Vous pouvez implémenter ici la logique de l'action GET basée sur les données POST
     # Par exemple, utilisez les données POST pour récupérer des données spécifiques
     # ou effectuer une action particulière et renvoyer le résultat
-    return data 
+    return  JsonResponse({"message": "Données reçues avec succès", "get_result": data}, status=200) 
+
 @csrf_exempt
 def sendPaygatTransaction(request):
     if request.method == "POST":
