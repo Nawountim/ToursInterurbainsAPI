@@ -2225,14 +2225,17 @@ def getPaygatTransactionResponse(request):
         return JsonResponse({"data": data, "code": 200})
     
 from django.contrib.sessions.models import Session
+transaction_data = None
 @csrf_exempt
 def getFedapayTransactionResponse(request):
+    global transaction_data
+
     if request.method == "POST":
         try:
             data = json.loads(request.body)
             
-            # Stockez les données dans la session de l'utilisateur
-            request.session['transaction_data'] = data
+            # Stockez les données dans la variable globale
+            transaction_data = data
             
             print(data)
             return JsonResponse({"message": "Données reçues avec succès"}, status=200)
@@ -2243,15 +2246,13 @@ def getFedapayTransactionResponse(request):
 
 @csrf_exempt
 def getFedapayTransactionData(request):
+    global transaction_data
+
     if request.method == "GET":
-        # Récupérez les données de la session de l'utilisateur
-        transaction_data = request.session.get('transaction_data', None)
-        
         if transaction_data is not None:
             return JsonResponse({"data": transaction_data}, status=200)
         else:
-            return JsonResponse({"error": "Aucune donnée disponible"}, status=404)
-        
+            return JsonResponse({"error": "Aucune donnée disponible"}, status=404) 
 @csrf_exempt
 def sendPaygatTransaction(request):
     if request.method == "POST":
